@@ -15,9 +15,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(mut self) -> ParseResult<'a, ParseTree<'a>> {
-        let (root, _) = self.parse_root()?;
-        Ok(ParseTree { root })
+    pub fn parse(mut self) -> ParseResult<'a, (ParseTree<'a>, Vec<ParserError<'a>>)> {
+        let (root, errors) = self.parse_root()?;
+        Ok((ParseTree { root }, errors))
     }
 
     fn parse_root(&mut self) -> ParseResult<'a, (ParseTreeRoot<'a>, Vec<ParserError<'a>>)> {
@@ -39,25 +39,36 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_statement(&mut self) -> ParseResult<'a, PStatement<'a>> {
-        if let Some(next_token) = self.tokenizer.next() {
+        let statement = if let Some(next_token) = self.tokenizer.next() {
             if next_token.token_type() == &TokenType::Let {
                 // let binding
-                let binding_type = BindingType::Let;
-                let identifier = self.parse_identifier()?;
-                self.expect_token(TokenType::Assign)?;
-                let value = self.parse_expression().ok();
-                let statement = PStatement::Binding {
-                    binding_type,
-                    identifier,
-                    value,
-                };
-                return Ok(statement);
+                self.parse_binding()?
             } else {
                 return Err(ParserError::UnexpectedToken(next_token));
             }
         } else {
             return Err(ParserError::UnexpectedEof);
-        }
+        };
+        self.optional_semicolon();
+        Ok(statement)
+    }
+
+    fn parse_binding(&mut self) -> ParseResult<'a, PStatement<'a>> {
+        let binding_type = BindingType::Let;
+        let identifier = self.parse_identifier()?;
+        let value = {
+            if let Ok(()) = self.expect_token(TokenType::Assign) {
+                Some(self.parse_expression()?)
+            } else {
+                None
+            }
+        };
+        let statement = PStatement::Binding {
+            binding_type,
+            identifier,
+            value,
+        };
+        return Ok(statement);
     }
 
     fn parse_identifier(&mut self) -> ParseResult<'a, PIdentifier<'a>> {
@@ -98,6 +109,16 @@ impl<'a> Parser<'a> {
             Err(ParserError::ExpectedToken(token_type))
         } else {
             Ok(())
+        }
+    }
+
+    /// See if there's a semicolon next if so consume it
+    fn optional_semicolon(&mut self) {
+        let next_token = self.tokenizer.peek();
+        if let Some(next_token) = next_token {
+            if next_token.token_type() == &TokenType::Semicolon {
+                let _ = self.tokenizer.next();
+            }
         }
     }
 }
@@ -144,7 +165,7 @@ enum BindingType {
     Let,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ParserError<'a> {
     UnexpectedEof,
     UnexpectedToken(Token<'a>),
@@ -166,7 +187,7 @@ let z = x + y;
         ";
         let tokenizer = Tokenizer::new(code);
         let parser = Parser::new(tokenizer);
-        let tree = parser.parse().expect("parsing failure");
+        let (tree, errors) = parser.parse().expect("parsing failure");
 
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
@@ -216,12 +237,13 @@ let z = x + y;
                                 "z",
                             ),
                         },
-                        value: None, // WIP
+                        value: None,
                     },
                 ],
             },
         };
 
+        assert_eq!(errors, vec![]);
         assert_eq!(tree, expected_tree);
     }
 }
