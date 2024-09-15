@@ -14,11 +14,16 @@ pub enum TokenType {
 pub struct Token<'a> {
     token_type: TokenType,
     lexeme: &'a str,
+    location: TokenLocation,
 }
 
 impl<'a> Token<'a> {
-    pub fn new(token_type: TokenType, lexeme: &'a str) -> Self {
-        Token { token_type, lexeme }
+    pub fn new(token_type: TokenType, location: TokenLocation, lexeme: &'a str) -> Self {
+        Token {
+            token_type,
+            lexeme,
+            location,
+        }
     }
     pub fn token_type(&self) -> &TokenType {
         &self.token_type
@@ -26,11 +31,17 @@ impl<'a> Token<'a> {
     pub fn lexeme(&self) -> &'a str {
         &self.lexeme
     }
+
+    pub fn location(&self) -> &TokenLocation {
+        &self.location
+    }
 }
 
 pub struct Tokenizer<'a> {
     code: &'a str,
     char_indices: CharIndices<'a>,
+    current_line: usize,
+    last_line_end_index: usize,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -38,6 +49,8 @@ impl<'a> Tokenizer<'a> {
         Self {
             code,
             char_indices: code.char_indices(),
+            current_line: 1,
+            last_line_end_index: 0,
         }
     }
 
@@ -93,7 +106,18 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn consume_whitespace(&mut self) -> Option<&'a str> {
-        self.consume_while(|c| c.is_whitespace())
+        if let Some(whitespace) = self.consume_while(|c| c.is_whitespace()) {
+            if whitespace.contains("\n") {
+                self.current_line += 1;
+                let mut it_clone = self.char_indices.clone();
+                if let Some((i, _)) = it_clone.next() {
+                    self.last_line_end_index = i - 1;
+                }
+            }
+            Some(whitespace)
+        } else {
+            None
+        }
     }
 
     fn match_token(
@@ -105,7 +129,14 @@ impl<'a> Tokenizer<'a> {
     ) -> Token<'a> {
         self.char_indices = it;
         let lexeme = &self.code[first..last + 1];
-        Token::new(token_type, lexeme)
+        Token::new(
+            token_type,
+            TokenLocation {
+                row: self.current_line,
+                column: first - self.last_line_end_index,
+            },
+            lexeme,
+        )
     }
 
     fn try_consume_keyword(&mut self) -> Option<Token<'a>> {
@@ -176,11 +207,17 @@ impl<'a> Iterator for Tokenizer<'a> {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct TokenLocation {
+    pub row: usize,
+    pub column: usize,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::tokenizer::Tokenizer;
 
-    use super::TokenType;
+    use super::{TokenLocation, TokenType};
     #[test]
     fn it_should_tokenize() {
         let code = "
@@ -191,34 +228,83 @@ third = first + second;
         ";
 
         let tokens = vec![
-            (TokenType::Let, "let"),
-            (TokenType::Identifier, "first"),
-            (TokenType::Assign, "="),
-            (TokenType::Literal, "30"),
-            (TokenType::Semicolon, ";"),
-            (TokenType::Let, "let"),
-            (TokenType::Identifier, "second"),
-            (TokenType::Assign, "="),
-            (TokenType::Literal, "40"),
-            (TokenType::Semicolon, ";"),
-            (TokenType::Let, "let"),
-            (TokenType::Identifier, "third"),
-            (TokenType::Semicolon, ";"),
-            (TokenType::Identifier, "third"),
-            (TokenType::Assign, "="),
-            (TokenType::Identifier, "first"),
-            (TokenType::Plus, "+"),
-            (TokenType::Identifier, "second"),
-            (TokenType::Semicolon, ";"),
+            (TokenType::Let, "let", TokenLocation { row: 2, column: 1 }),
+            (
+                TokenType::Identifier,
+                "first",
+                TokenLocation { row: 2, column: 5 },
+            ),
+            (TokenType::Assign, "=", TokenLocation { row: 2, column: 11 }),
+            (
+                TokenType::Literal,
+                "30",
+                TokenLocation { row: 2, column: 13 },
+            ),
+            (
+                TokenType::Semicolon,
+                ";",
+                TokenLocation { row: 2, column: 15 },
+            ),
+            (TokenType::Let, "let", TokenLocation { row: 3, column: 1 }),
+            (
+                TokenType::Identifier,
+                "second",
+                TokenLocation { row: 3, column: 5 },
+            ),
+            (TokenType::Assign, "=", TokenLocation { row: 3, column: 12 }),
+            (
+                TokenType::Literal,
+                "40",
+                TokenLocation { row: 3, column: 14 },
+            ),
+            (
+                TokenType::Semicolon,
+                ";",
+                TokenLocation { row: 3, column: 16 },
+            ),
+            (TokenType::Let, "let", TokenLocation { row: 4, column: 1 }),
+            (
+                TokenType::Identifier,
+                "third",
+                TokenLocation { row: 4, column: 5 },
+            ),
+            (
+                TokenType::Semicolon,
+                ";",
+                TokenLocation { row: 4, column: 10 },
+            ),
+            (
+                TokenType::Identifier,
+                "third",
+                TokenLocation { row: 5, column: 1 },
+            ),
+            (TokenType::Assign, "=", TokenLocation { row: 5, column: 7 }),
+            (
+                TokenType::Identifier,
+                "first",
+                TokenLocation { row: 5, column: 9 },
+            ),
+            (TokenType::Plus, "+", TokenLocation { row: 5, column: 15 }),
+            (
+                TokenType::Identifier,
+                "second",
+                TokenLocation { row: 5, column: 17 },
+            ),
+            (
+                TokenType::Semicolon,
+                ";",
+                TokenLocation { row: 5, column: 23 },
+            ),
         ];
 
         let mut tokenizer = Tokenizer::new(code);
 
-        for (expected_token, lexeme) in tokens {
+        for (expected_token, lexeme, location) in tokens {
             let actual_token = tokenizer.next().unwrap();
 
             assert_eq!(actual_token.token_type(), &expected_token);
             assert_eq!(actual_token.lexeme(), lexeme);
+            assert_eq!(actual_token.location(), &location);
         }
     }
 }

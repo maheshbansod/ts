@@ -59,7 +59,7 @@ enum BindingType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tokenizer::{Token, TokenType, Tokenizer};
+    use crate::tokenizer::{Token, TokenLocation, TokenType, Tokenizer};
 
     #[test]
     fn it_should_parse() {
@@ -77,11 +77,19 @@ let z = x + y;
                 statements: vec![PStatement::Binding {
                     binding_type: BindingType::Let,
                     identifier: PIdentifier {
-                        token: Token::new(TokenType::Identifier, "x"),
+                        token: Token::new(
+                            TokenType::Identifier,
+                            TokenLocation { row: 2, column: 4 },
+                            "x",
+                        ),
                     },
                     value: Some(PExpression::Literal(PLiteral::Number {
                         value: 30.0,
-                        token: Token::new(TokenType::Literal, "30"),
+                        token: Token::new(
+                            TokenType::Literal,
+                            TokenLocation { row: 2, column: 8 },
+                            "30",
+                        ),
                     })),
                 }],
             },
