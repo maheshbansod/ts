@@ -1,21 +1,109 @@
-use crate::tokenizer::{Token, Tokenizer};
+use std::iter::Peekable;
+
+use crate::tokenizer::{Token, TokenType, Tokenizer};
 
 pub struct Parser<'a> {
-    tokenizer: Tokenizer<'a>,
+    tokenizer: Peekable<Tokenizer<'a>>,
 }
+
+type ParseResult<'a, T> = Result<T, ParserError<'a>>;
 
 impl<'a> Parser<'a> {
     pub fn new(tokenizer: Tokenizer<'a>) -> Self {
-        Self { tokenizer }
+        Self {
+            tokenizer: tokenizer.peekable(),
+        }
     }
 
-    pub fn parse(mut self) -> ParseTree<'a> {
-        todo!()
+    pub fn parse(mut self) -> ParseResult<'a, ParseTree<'a>> {
+        let (root, _) = self.parse_root()?;
+        Ok(ParseTree { root })
+    }
+
+    fn parse_root(&mut self) -> ParseResult<'a, (ParseTreeRoot<'a>, Vec<ParserError<'a>>)> {
+        let mut statements = vec![];
+        let mut errors = vec![];
+        loop {
+            match self.parse_statement() {
+                Ok(statement) => statements.push(statement),
+                Err(ParserError::UnexpectedEof) => {
+                    if statements.len() == 0 {
+                        return Err(ParserError::UnexpectedEof);
+                    }
+                    break;
+                }
+                Err(e) => errors.push(e),
+            }
+        }
+        Ok((ParseTreeRoot { statements }, errors))
+    }
+
+    fn parse_statement(&mut self) -> ParseResult<'a, PStatement<'a>> {
+        if let Some(next_token) = self.tokenizer.next() {
+            if next_token.token_type() == &TokenType::Let {
+                // let binding
+                let binding_type = BindingType::Let;
+                let identifier = self.parse_identifier()?;
+                self.expect_token(TokenType::Assign)?;
+                let value = self.parse_expression().ok();
+                let statement = PStatement::Binding {
+                    binding_type,
+                    identifier,
+                    value,
+                };
+                return Ok(statement);
+            } else {
+                return Err(ParserError::UnexpectedToken(next_token));
+            }
+        } else {
+            return Err(ParserError::UnexpectedEof);
+        }
+    }
+
+    fn parse_identifier(&mut self) -> ParseResult<'a, PIdentifier<'a>> {
+        if let Some(token) = self.tokenizer.next() {
+            if token.token_type() == &TokenType::Identifier {
+                Ok(PIdentifier { token })
+            } else {
+                Err(ParserError::ExpectedToken(TokenType::Identifier))
+            }
+        } else {
+            Err(ParserError::UnexpectedEof)
+        }
+    }
+
+    fn parse_expression(&mut self) -> ParseResult<'a, PExpression<'a>> {
+        if let Some(token) = self.tokenizer.next() {
+            if token.token_type() == &TokenType::Literal {
+                let value = token
+                    .lexeme()
+                    .parse::<f32>()
+                    .map_err(|_| ParserError::ExpectedToken(TokenType::Literal))?;
+                Ok(PExpression::Literal(PLiteral::Number { value, token }))
+            } else {
+                Err(ParserError::UnexpectedToken(token))
+            }
+        } else {
+            Err(ParserError::UnexpectedEof)
+        }
+    }
+
+    fn expect_token(&mut self, token_type: TokenType) -> ParseResult<'a, ()> {
+        if !self
+            .tokenizer
+            .next()
+            .map(|token| (token.token_type() == &token_type))
+            .unwrap_or(false)
+        {
+            Err(ParserError::ExpectedToken(token_type))
+        } else {
+            Ok(())
+        }
     }
 }
 
 #[derive(Debug, PartialEq)]
-struct ParseTree<'a> {
+pub struct ParseTree<'a> {
     root: ParseTreeRoot<'a>,
 }
 
@@ -56,10 +144,18 @@ enum BindingType {
     Let,
 }
 
+#[derive(Debug)]
+pub enum ParserError<'a> {
+    UnexpectedEof,
+    UnexpectedToken(Token<'a>),
+    ExpectedToken(TokenType),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::tokenizer::{Token, TokenLocation, TokenType, Tokenizer};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn it_should_parse() {
@@ -70,30 +166,60 @@ let z = x + y;
         ";
         let tokenizer = Tokenizer::new(code);
         let parser = Parser::new(tokenizer);
-        let tree = parser.parse();
+        let tree = parser.parse().expect("parsing failure");
 
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
-                statements: vec![PStatement::Binding {
-                    binding_type: BindingType::Let,
-                    identifier: PIdentifier {
-                        token: Token::new(
-                            TokenType::Identifier,
-                            TokenLocation { row: 2, column: 4 },
-                            "x",
-                        ),
+                statements: vec![
+                    PStatement::Binding {
+                        binding_type: BindingType::Let,
+                        identifier: PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 2, column: 5 },
+                                "x",
+                            ),
+                        },
+                        value: Some(PExpression::Literal(PLiteral::Number {
+                            value: 30.0,
+                            token: Token::new(
+                                TokenType::Literal,
+                                TokenLocation { row: 2, column: 9 },
+                                "30",
+                            ),
+                        })),
                     },
-                    value: Some(PExpression::Literal(PLiteral::Number {
-                        value: 30.0,
-                        token: Token::new(
-                            TokenType::Literal,
-                            TokenLocation { row: 2, column: 8 },
-                            "30",
-                        ),
-                    })),
-                }],
+                    PStatement::Binding {
+                        binding_type: BindingType::Let,
+                        identifier: PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 3, column: 5 },
+                                "y",
+                            ),
+                        },
+                        value: Some(PExpression::Literal(PLiteral::Number {
+                            value: 100.0,
+                            token: Token::new(
+                                TokenType::Literal,
+                                TokenLocation { row: 3, column: 9 },
+                                "100",
+                            ),
+                        })),
+                    },
+                    PStatement::Binding {
+                        binding_type: BindingType::Let,
+                        identifier: PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 4, column: 5 },
+                                "z",
+                            ),
+                        },
+                        value: None, // WIP
+                    },
+                ],
             },
-            // WIP
         };
 
         assert_eq!(tree, expected_tree);
