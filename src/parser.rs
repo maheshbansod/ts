@@ -1,13 +1,15 @@
 use crate::tokenizer::{Token, Tokenizer};
 
-pub struct Parser {}
+pub struct Parser<'a> {
+    tokenizer: Tokenizer<'a>,
+}
 
-impl Parser {
-    pub fn new(tokenizer: Tokenizer) -> Self {
-        todo!()
+impl<'a> Parser<'a> {
+    pub fn new(tokenizer: Tokenizer<'a>) -> Self {
+        Self { tokenizer }
     }
 
-    pub fn parse<'a>(mut self) -> ParseTree<'a> {
+    pub fn parse(mut self) -> ParseTree<'a> {
         todo!()
     }
 }
