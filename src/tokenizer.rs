@@ -10,7 +10,7 @@ pub enum TokenType {
     Semicolon,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Token<'a> {
     token_type: TokenType,
     lexeme: &'a str,
