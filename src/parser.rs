@@ -39,11 +39,12 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_statement(&mut self) -> ParseResult<'a, PStatement<'a>> {
-        let statement = if let Some(next_token) = self.tokenizer.next() {
+        let statement = if let Some(next_token) = self.tokenizer.peek() {
             if next_token.token_type() == &TokenType::Let {
                 // let binding
                 self.parse_binding()?
             } else {
+                let next_token = self.tokenizer.next().expect("token was already peeked");
                 return Err(ParserError::UnexpectedToken(next_token));
             }
         } else {
@@ -54,6 +55,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_binding(&mut self) -> ParseResult<'a, PStatement<'a>> {
+        self.expect_token(TokenType::Let)?;
         let binding_type = BindingType::Let;
         let identifier = self.parse_identifier()?;
         let value = {
@@ -99,15 +101,17 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Check if a token is there and consume
     fn expect_token(&mut self, token_type: TokenType) -> ParseResult<'a, ()> {
         if !self
             .tokenizer
-            .next()
+            .peek()
             .map(|token| (token.token_type() == &token_type))
             .unwrap_or(false)
         {
             Err(ParserError::ExpectedToken(token_type))
         } else {
+            self.tokenizer.next().expect("We peeked in the above if");
             Ok(())
         }
     }
