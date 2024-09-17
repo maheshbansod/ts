@@ -92,7 +92,10 @@ impl<'a> Parser<'a> {
                     .lexeme()
                     .parse::<f32>()
                     .map_err(|_| ParserError::ExpectedToken(TokenType::Literal))?;
-                Ok(PExpression::Literal(PLiteral::Number { value, token }))
+                Ok(PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                    value,
+                    token,
+                })))
             } else {
                 Err(ParserError::UnexpectedToken(token))
             }
@@ -138,6 +141,11 @@ struct ParseTreeRoot<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+enum POperator<'a> {
+    BinaryAdd(Token<'a>),
+}
+
+#[derive(Debug, PartialEq)]
 enum PStatement<'a> {
     Binding {
         binding_type: BindingType,
@@ -148,6 +156,12 @@ enum PStatement<'a> {
 
 #[derive(Debug, PartialEq)]
 enum PExpression<'a> {
+    Atom(PAtom<'a>),
+    Cons(POperator<'a>, Vec<PExpression<'a>>),
+}
+
+#[derive(Debug, PartialEq)]
+enum PAtom<'a> {
     Literal(PLiteral<'a>),
 }
 
@@ -205,14 +219,14 @@ let z = x + y;
                                 "x",
                             ),
                         },
-                        value: Some(PExpression::Literal(PLiteral::Number {
+                        value: Some(PExpression::Atom(PAtom::Literal(PLiteral::Number {
                             value: 30.0,
                             token: Token::new(
                                 TokenType::Literal,
                                 TokenLocation { row: 2, column: 9 },
                                 "30",
                             ),
-                        })),
+                        }))),
                     },
                     PStatement::Binding {
                         binding_type: BindingType::Let,
@@ -223,14 +237,14 @@ let z = x + y;
                                 "y",
                             ),
                         },
-                        value: Some(PExpression::Literal(PLiteral::Number {
+                        value: Some(PExpression::Atom(PAtom::Literal(PLiteral::Number {
                             value: 100.0,
                             token: Token::new(
                                 TokenType::Literal,
                                 TokenLocation { row: 3, column: 9 },
                                 "100",
                             ),
-                        })),
+                        }))),
                     },
                     PStatement::Binding {
                         binding_type: BindingType::Let,
@@ -249,5 +263,54 @@ let z = x + y;
 
         assert_eq!(errors, vec![]);
         assert_eq!(tree, expected_tree);
+    }
+
+    #[test]
+    fn it_should_parse_exp_atom() {
+        let code = "1";
+        let tokenizer = Tokenizer::new(code);
+        let mut parser = Parser::new(tokenizer);
+        assert_eq!(
+            parser.parse_expression().expect("should parse"),
+            PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                value: 1.0,
+                token: Token::new(TokenType::Literal, TokenLocation { row: 1, column: 1 }, "1")
+            }))
+        );
+    }
+
+    #[test]
+    fn it_should_parse_add_exp() {
+        let code = "4 + 3";
+        let tokenizer = Tokenizer::new(code);
+        let mut parser = Parser::new(tokenizer);
+        assert_eq!(
+            parser.parse_expression().expect("should parse"),
+            PExpression::Cons(
+                POperator::BinaryAdd(Token::new(
+                    TokenType::Literal,
+                    TokenLocation { row: 1, column: 3 },
+                    "+"
+                )),
+                vec![
+                    PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                        value: 4.0,
+                        token: Token::new(
+                            TokenType::Literal,
+                            TokenLocation { row: 1, column: 1 },
+                            "4"
+                        )
+                    })),
+                    PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                        value: 3.0,
+                        token: Token::new(
+                            TokenType::Literal,
+                            TokenLocation { row: 1, column: 5 },
+                            "3"
+                        )
+                    }))
+                ]
+            )
+        )
     }
 }
