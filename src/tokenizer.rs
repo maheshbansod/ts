@@ -41,7 +41,7 @@ pub struct Tokenizer<'a> {
     code: &'a str,
     char_indices: CharIndices<'a>,
     current_line: usize,
-    last_line_end_index: usize,
+    current_line_first_index: usize,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -50,7 +50,7 @@ impl<'a> Tokenizer<'a> {
             code,
             char_indices: code.char_indices(),
             current_line: 1,
-            last_line_end_index: 0,
+            current_line_first_index: 0,
         }
     }
 
@@ -67,6 +67,9 @@ impl<'a> Tokenizer<'a> {
         return None;
     }
 
+    /// @returns Option<(first, last, iterator)>
+    /// [first, last] overlaps the consumed
+    /// if None is returned that means nothing was matched
     fn consume_while_it<C>(
         it: &CharIndices<'a>,
         condition: C,
@@ -89,17 +92,14 @@ impl<'a> Tokenizer<'a> {
         loop {
             let mut peeker = it_clone.clone();
             if let Some((i, c)) = peeker.next() {
-                last_index = i;
                 if !condition(c) {
-                    return Some((first_index, last_index - 1, it_clone));
+                    break;
                 }
+                last_index = i;
                 it_clone = peeker;
             } else {
                 break;
             }
-        }
-        if last_index == first_index {
-            return None;
         }
 
         return Some((first_index, last_index, it_clone));
@@ -108,10 +108,13 @@ impl<'a> Tokenizer<'a> {
     fn consume_whitespace(&mut self) -> Option<&'a str> {
         if let Some(whitespace) = self.consume_while(|c| c.is_whitespace()) {
             if whitespace.contains("\n") {
-                self.current_line += 1;
+                let n_nl = whitespace.chars().filter(|c| *c == '\n').count();
+                self.current_line += n_nl;
+                let n_chars_after_nl = whitespace.len() - whitespace.rfind("\n").unwrap() - 1;
                 let mut it_clone = self.char_indices.clone();
+
                 if let Some((i, _)) = it_clone.next() {
-                    self.last_line_end_index = i - 1;
+                    self.current_line_first_index = i - n_chars_after_nl;
                 }
             }
             Some(whitespace)
@@ -120,6 +123,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// create a token use index [first, last) in code for lexeme
     fn match_token(
         &mut self,
         it: CharIndices<'a>,
@@ -133,7 +137,7 @@ impl<'a> Tokenizer<'a> {
             token_type,
             TokenLocation {
                 row: self.current_line,
-                column: first - self.last_line_end_index,
+                column: first - self.current_line_first_index + 1,
             },
             lexeme,
         )
@@ -216,8 +220,9 @@ pub struct TokenLocation {
 #[cfg(test)]
 mod tests {
     use crate::tokenizer::Tokenizer;
+    use pretty_assertions::assert_eq;
 
-    use super::{TokenLocation, TokenType};
+    use super::{Token, TokenLocation, TokenType};
     #[test]
     fn it_should_tokenize() {
         let code = "
@@ -294,6 +299,133 @@ third = first + second;
                 TokenType::Semicolon,
                 ";",
                 TokenLocation { row: 5, column: 23 },
+            ),
+        ];
+
+        let mut tokenizer = Tokenizer::new(code);
+
+        for (expected_token, lexeme, location) in tokens {
+            let actual_token = tokenizer.next().unwrap();
+
+            assert_eq!(actual_token.token_type(), &expected_token);
+            assert_eq!(actual_token.lexeme(), lexeme);
+            assert_eq!(actual_token.location(), &location);
+        }
+    }
+
+    #[test]
+    fn it_should_tokenize_literal() {
+        let code = "1";
+        let mut tokenizer = Tokenizer::new(code);
+        let next = tokenizer.next().expect("Literal exists");
+        let expected = Token::new(TokenType::Literal, TokenLocation { row: 1, column: 1 }, "1");
+
+        assert_eq!(expected, next);
+    }
+
+    #[test]
+    fn it_should_tokenize_identifier() {
+        let code = "ident";
+        let mut tokenizer = Tokenizer::new(code);
+        let next = tokenizer.next().expect("Identifier exists");
+        let expected = Token::new(
+            TokenType::Identifier,
+            TokenLocation { row: 1, column: 1 },
+            "ident",
+        );
+        assert_eq!(expected, next);
+    }
+
+    #[test]
+    fn it_should_tokenize_literal_with_ws() {
+        let code = "
+
+   1";
+
+        let mut tokenizer = Tokenizer::new(code);
+        let next = tokenizer.next().expect("Literal exists");
+        let expected = Token::new(TokenType::Literal, TokenLocation { row: 3, column: 4 }, "1");
+
+        assert_eq!(expected, next);
+    }
+
+    #[test]
+    fn it_should_tokenize_with_ws() {
+        let code = "
+   let first = 30;   
+let second = 40;
+      
+    let third;
+    third = first + second;
+        ";
+
+        let tokens = vec![
+            (TokenType::Let, "let", TokenLocation { row: 2, column: 4 }),
+            (
+                TokenType::Identifier,
+                "first",
+                TokenLocation { row: 2, column: 8 },
+            ),
+            (TokenType::Assign, "=", TokenLocation { row: 2, column: 14 }),
+            (
+                TokenType::Literal,
+                "30",
+                TokenLocation { row: 2, column: 16 },
+            ),
+            (
+                TokenType::Semicolon,
+                ";",
+                TokenLocation { row: 2, column: 18 },
+            ),
+            (TokenType::Let, "let", TokenLocation { row: 3, column: 1 }),
+            (
+                TokenType::Identifier,
+                "second",
+                TokenLocation { row: 3, column: 5 },
+            ),
+            (TokenType::Assign, "=", TokenLocation { row: 3, column: 12 }),
+            (
+                TokenType::Literal,
+                "40",
+                TokenLocation { row: 3, column: 14 },
+            ),
+            (
+                TokenType::Semicolon,
+                ";",
+                TokenLocation { row: 3, column: 16 },
+            ),
+            (TokenType::Let, "let", TokenLocation { row: 5, column: 5 }),
+            (
+                TokenType::Identifier,
+                "third",
+                TokenLocation { row: 5, column: 9 },
+            ),
+            (
+                TokenType::Semicolon,
+                ";",
+                TokenLocation { row: 5, column: 14 },
+            ),
+            (
+                TokenType::Identifier,
+                "third",
+                TokenLocation { row: 6, column: 5 },
+            ),
+            (TokenType::Assign, "=", TokenLocation { row: 6, column: 11 }),
+            (
+                TokenType::Identifier,
+                "first",
+                TokenLocation { row: 6, column: 13 },
+            ),
+            (TokenType::Plus, "+", TokenLocation { row: 6, column: 19 }),
+            (
+                TokenType::Identifier,
+                "second",
+                TokenLocation { row: 6, column: 21 },
+            ),
+            (
+                TokenType::Semicolon,
+                ";",
+                TokenLocation { row: 6, column: 27 },
             ),
         ];
 
