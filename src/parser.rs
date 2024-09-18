@@ -86,22 +86,61 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self) -> ParseResult<'a, PExpression<'a>> {
-        if let Some(token) = self.tokenizer.next() {
-            if token.token_type() == &TokenType::Literal {
-                let value = token
-                    .lexeme()
-                    .parse::<f32>()
-                    .map_err(|_| ParserError::ExpectedToken(TokenType::Literal))?;
-                Ok(PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                    value,
-                    token,
-                })))
-            } else {
-                Err(ParserError::UnexpectedToken(token))
-            }
+        // if let Some(token) = self.tokenizer.next() {
+        //     if token.token_type() == &TokenType::Literal {
+        //         let value = token
+        //             .lexeme()
+        //             .parse::<f32>()
+        //             .map_err(|_| ParserError::ExpectedToken(TokenType::Literal))?;
+        //         Ok(PExpression::Atom(PAtom::Literal(PLiteral::Number {
+        //             value,
+        //             token,
+        //         })))
+        //     } else {
+        //         Err(ParserError::UnexpectedToken(token))
+        //     }
+        // } else {
+        //     Err(ParserError::UnexpectedEof)
+        // }
+        self.parse_expression_pratt(0)
+    }
+
+    fn parse_expression_pratt(
+        &mut self,
+        min_binding_power: u8,
+    ) -> ParseResult<'a, PExpression<'a>> {
+        let token = self.tokenizer.next().ok_or(ParserError::UnexpectedEof)?;
+        println!("1 {:?}", token);
+        let mut lhs = if let Ok(atom) = self.atom_from_token(token) {
+            PExpression::Atom(atom)
         } else {
-            Err(ParserError::UnexpectedEof)
+            todo!()
+        };
+
+        loop {
+            let op_token = self.tokenizer.peek();
+            println!("op: {:?}", op_token);
+            if op_token.is_none() {
+                break;
+            }
+            let op_token = op_token.unwrap();
+
+            if let Some((l_bp, r_bp)) = infix_binding_power(op_token.token_type()) {
+                if l_bp < min_binding_power {
+                    break;
+                }
+                let token = self.tokenizer.next().expect("Already peeked ");
+                let operator = self
+                    .token_as_operator(token)
+                    .expect("Already peeked and checked");
+                let rhs = self.parse_expression_pratt(r_bp)?;
+                lhs = PExpression::Cons(operator, vec![lhs, rhs]);
+
+                continue;
+            }
+            break;
         }
+        Ok(lhs)
     }
 
     /// Check if a token is there and consume
@@ -126,6 +165,25 @@ impl<'a> Parser<'a> {
             if next_token.token_type() == &TokenType::Semicolon {
                 let _ = self.tokenizer.next();
             }
+        }
+    }
+
+    fn token_as_operator(&self, token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
+        if matches!(token.token_type(), TokenType::Plus) {
+            Ok(POperator::BinaryAdd(token))
+        } else {
+            Err(ParserError::UnexpectedToken(token))
+        }
+    }
+
+    fn atom_from_token(&self, token: Token<'a>) -> ParseResult<'a, PAtom<'a>> {
+        match token.token_type() {
+            TokenType::Literal => Ok(PAtom::Literal(PLiteral::Number {
+                value: token.lexeme().parse::<f32>().expect("it to be a number"),
+                token,
+            })),
+            TokenType::Identifier => Ok(PAtom::Identifier(PIdentifier { token })),
+            _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
 }
@@ -163,6 +221,7 @@ enum PExpression<'a> {
 #[derive(Debug, PartialEq)]
 enum PAtom<'a> {
     Literal(PLiteral<'a>),
+    Identifier(PIdentifier<'a>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -255,7 +314,29 @@ let z = x + y;
                                 "z",
                             ),
                         },
-                        value: None,
+                        value: Some(PExpression::Cons(
+                            POperator::BinaryAdd(Token::new(
+                                TokenType::Plus,
+                                TokenLocation { row: 4, column: 11 },
+                                "+",
+                            )),
+                            vec![
+                                PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                    token: Token::new(
+                                        TokenType::Identifier,
+                                        TokenLocation { row: 4, column: 9 },
+                                        "x",
+                                    ),
+                                })),
+                                PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                    token: Token::new(
+                                        TokenType::Identifier,
+                                        TokenLocation { row: 4, column: 13 },
+                                        "y",
+                                    ),
+                                })),
+                            ],
+                        )),
                     },
                 ],
             },
@@ -277,6 +358,19 @@ let z = x + y;
                 token: Token::new(TokenType::Literal, TokenLocation { row: 1, column: 1 }, "1")
             }))
         );
+        let code = "ident";
+        let tokenizer = Tokenizer::new(code);
+        let mut parser = Parser::new(tokenizer);
+        assert_eq!(
+            parser.parse_expression().expect("should parse"),
+            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                token: Token::new(
+                    TokenType::Identifier,
+                    TokenLocation { row: 1, column: 1 },
+                    "ident"
+                )
+            }))
+        );
     }
 
     #[test]
@@ -288,7 +382,7 @@ let z = x + y;
             parser.parse_expression().expect("should parse"),
             PExpression::Cons(
                 POperator::BinaryAdd(Token::new(
-                    TokenType::Literal,
+                    TokenType::Plus,
                     TokenLocation { row: 1, column: 3 },
                     "+"
                 )),
@@ -311,6 +405,42 @@ let z = x + y;
                     }))
                 ]
             )
-        )
+        );
+        let code = "a + b";
+        let tokenizer = Tokenizer::new(code);
+        let mut parser = Parser::new(tokenizer);
+        assert_eq!(
+            parser.parse_expression().expect("should parse"),
+            PExpression::Cons(
+                POperator::BinaryAdd(Token::new(
+                    TokenType::Plus,
+                    TokenLocation { row: 1, column: 3 },
+                    "+"
+                )),
+                vec![
+                    PExpression::Atom(PAtom::Identifier(PIdentifier {
+                        token: Token::new(
+                            TokenType::Identifier,
+                            TokenLocation { row: 1, column: 1 },
+                            "a"
+                        )
+                    })),
+                    PExpression::Atom(PAtom::Identifier(PIdentifier {
+                        token: Token::new(
+                            TokenType::Identifier,
+                            TokenLocation { row: 1, column: 5 },
+                            "b"
+                        )
+                    })),
+                ]
+            )
+        );
+    }
+}
+
+fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
+    match token_type {
+        TokenType::Plus => Some((1, 2)),
+        _ => None,
     }
 }
