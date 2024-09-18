@@ -1,4 +1,4 @@
-use std::{fmt::Display, iter::Peekable};
+use std::{error::Error, fmt::Display, iter::Peekable};
 
 use crate::tokenizer::{Token, TokenType, Tokenizer};
 
@@ -28,7 +28,7 @@ impl<'a> Parser<'a> {
                 Ok(statement) => statements.push(statement),
                 Err(ParserError::UnexpectedEof) => {
                     if statements.is_empty() {
-                        return Err(ParserError::UnexpectedEof);
+                        errors.push(ParserError::UnexpectedEof);
                     }
                     break;
                 }
@@ -245,6 +245,8 @@ pub enum ParserError<'a> {
     UnexpectedToken(Token<'a>),
     ExpectedToken(TokenType),
 }
+
+impl Error for ParserError<'_> {}
 
 impl<'a> Display for PExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
