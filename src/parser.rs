@@ -1,4 +1,4 @@
-use std::iter::Peekable;
+use std::{fmt::Display, iter::Peekable};
 
 use crate::tokenizer::{Token, TokenType, Tokenizer};
 
@@ -86,22 +86,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self) -> ParseResult<'a, PExpression<'a>> {
-        // if let Some(token) = self.tokenizer.next() {
-        //     if token.token_type() == &TokenType::Literal {
-        //         let value = token
-        //             .lexeme()
-        //             .parse::<f32>()
-        //             .map_err(|_| ParserError::ExpectedToken(TokenType::Literal))?;
-        //         Ok(PExpression::Atom(PAtom::Literal(PLiteral::Number {
-        //             value,
-        //             token,
-        //         })))
-        //     } else {
-        //         Err(ParserError::UnexpectedToken(token))
-        //     }
-        // } else {
-        //     Err(ParserError::UnexpectedEof)
-        // }
         self.parse_expression_pratt(0)
     }
 
@@ -110,16 +94,23 @@ impl<'a> Parser<'a> {
         min_binding_power: u8,
     ) -> ParseResult<'a, PExpression<'a>> {
         let token = self.tokenizer.next().ok_or(ParserError::UnexpectedEof)?;
-        println!("1 {:?}", token);
-        let mut lhs = if let Ok(atom) = self.atom_from_token(token) {
-            PExpression::Atom(atom)
+        let mut lhs = if is_token_expression_atom(token.token_type()) {
+            PExpression::Atom(self.atom_from_token(token).unwrap())
+        } else if is_token_prefix_operator(token.token_type()) {
+            let token_type = token.token_type();
+            if let Some(((), bp)) = prefix_binding_power(&token_type) {
+                let operator = self.token_as_operator(token).unwrap();
+                let rhs = self.parse_expression_pratt(bp)?;
+                PExpression::Cons(operator, vec![rhs])
+            } else {
+                panic!("expected prefix binding power"); // todo: should this be a ParserResult?
+            }
         } else {
             todo!()
         };
 
         loop {
             let op_token = self.tokenizer.peek();
-            println!("op: {:?}", op_token);
             if op_token.is_none() {
                 break;
             }
@@ -169,10 +160,15 @@ impl<'a> Parser<'a> {
     }
 
     fn token_as_operator(&self, token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
-        if matches!(token.token_type(), TokenType::Plus) {
-            Ok(POperator::BinaryAdd(token))
-        } else {
-            Err(ParserError::UnexpectedToken(token))
+        // if matches!(token.token_type(), TokenType::Plus) {
+        //     Ok(POperator::BinaryAdd(token))
+        // } else {
+        //     Err(ParserError::UnexpectedToken(token))
+        // }
+        match token.token_type() {
+            TokenType::Plus => Ok(POperator::BinaryAdd(token)),
+            TokenType::Minus => Ok(POperator::Minus(token)),
+            _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
 
@@ -201,6 +197,7 @@ struct ParseTreeRoot<'a> {
 #[derive(Debug, PartialEq)]
 enum POperator<'a> {
     BinaryAdd(Token<'a>),
+    Minus(Token<'a>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -247,6 +244,47 @@ pub enum ParserError<'a> {
     UnexpectedEof,
     UnexpectedToken(Token<'a>),
     ExpectedToken(TokenType),
+}
+
+impl<'a> Display for PExpression<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PExpression::Atom(atom) => match atom {
+                PAtom::Literal(literal) => write!(f, "{}", literal),
+                PAtom::Identifier(identifier) => write!(f, "{}", identifier),
+            },
+            PExpression::Cons(operator, rest) => {
+                write!(f, "{} ", operator)?;
+                for expr in rest {
+                    write!(f, "{} ", expr)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl<'a> Display for PLiteral<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PLiteral::Number { value, .. } => write!(f, "{}", value),
+        }
+    }
+}
+
+impl<'a> Display for PIdentifier<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.token.lexeme())
+    }
+}
+
+impl<'a> Display for POperator<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            POperator::BinaryAdd(_) => write!(f, "+"),
+            POperator::Minus(_) => write!(f, "-"),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -374,6 +412,15 @@ let z = x + y;
     }
 
     #[test]
+    fn unary_single_exp() {
+        let code = "-1";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression().expect("it should parse");
+
+        assert_eq!(tree.to_string(), "- 1 ")
+    }
+
+    #[test]
     fn it_should_parse_add_exp() {
         let code = "4 + 3";
         let tokenizer = Tokenizer::new(code);
@@ -442,5 +489,26 @@ fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
     match token_type {
         TokenType::Plus => Some((1, 2)),
         _ => None,
+    }
+}
+fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
+    match token_type {
+        TokenType::Minus => Some(((), 6)),
+        TokenType::Plus => Some(((), 4)),
+        _ => None,
+    }
+}
+
+fn is_token_prefix_operator(token_type: &TokenType) -> bool {
+    match token_type {
+        TokenType::Plus | TokenType::Minus => true,
+        _ => false,
+    }
+}
+
+fn is_token_expression_atom(token_type: &TokenType) -> bool {
+    match token_type {
+        TokenType::Identifier | TokenType::Literal => true,
+        _ => false,
     }
 }
