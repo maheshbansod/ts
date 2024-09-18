@@ -287,6 +287,26 @@ impl<'a> Display for POperator<'a> {
     }
 }
 
+impl<'a> Display for ParserError<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParserError::UnexpectedToken(token) => {
+                let location = token.location();
+                write!(
+                    f,
+                    "Unexpected token {:?} at line {}, column {}",
+                    token.lexeme(),
+                    location.row,
+                    location.column
+                )
+            }
+            ParserError::UnexpectedEof => write!(f, "Unexpected end of file"),
+            // todo: remove Expected token maybe or maybe have what is the current token too
+            ParserError::ExpectedToken(t) => write!(f, "Expected token type {:?}", t),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
