@@ -254,11 +254,11 @@ impl<'a> Display for PExpression<'a> {
                 PAtom::Identifier(identifier) => write!(f, "{}", identifier),
             },
             PExpression::Cons(operator, rest) => {
-                write!(f, "{} ", operator)?;
+                write!(f, "{} (", operator)?;
                 for expr in rest {
                     write!(f, "{} ", expr)?;
                 }
-                Ok(())
+                write!(f, ")")
             }
         }
     }
@@ -417,7 +417,7 @@ let z = x + y;
         let mut parser = Parser::new(Tokenizer::new(code));
         let tree = parser.parse_expression().expect("it should parse");
 
-        assert_eq!(tree.to_string(), "- 1 ")
+        assert_eq!(tree.to_string(), "- (1 )")
     }
 
     #[test]
@@ -426,7 +426,7 @@ let z = x + y;
         let mut parser = Parser::new(Tokenizer::new(code));
         let tree = parser.parse_expression().expect("it should parse");
 
-        assert_eq!(tree.to_string(), "+ + 4 3  - 2  ")
+        assert_eq!(tree.to_string(), "+ (+ (4 3 ) - (2 ) )")
     }
 
     #[test]
