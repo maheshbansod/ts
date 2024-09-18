@@ -421,6 +421,15 @@ let z = x + y;
     }
 
     #[test]
+    fn test_exp() {
+        let code = "4 + 3 + -2";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression().expect("it should parse");
+
+        assert_eq!(tree.to_string(), "+ + 4 3  - 2  ")
+    }
+
+    #[test]
     fn it_should_parse_add_exp() {
         let code = "4 + 3";
         let tokenizer = Tokenizer::new(code);
