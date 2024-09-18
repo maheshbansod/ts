@@ -27,7 +27,7 @@ impl<'a> Parser<'a> {
             match self.parse_statement() {
                 Ok(statement) => statements.push(statement),
                 Err(ParserError::UnexpectedEof) => {
-                    if statements.len() == 0 {
+                    if statements.is_empty() {
                         return Err(ParserError::UnexpectedEof);
                     }
                     break;
@@ -70,7 +70,7 @@ impl<'a> Parser<'a> {
             identifier,
             value,
         };
-        return Ok(statement);
+        Ok(statement)
     }
 
     fn parse_identifier(&mut self) -> ParseResult<'a, PIdentifier<'a>> {
@@ -98,7 +98,7 @@ impl<'a> Parser<'a> {
             PExpression::Atom(self.atom_from_token(token).unwrap())
         } else if is_token_prefix_operator(token.token_type()) {
             let token_type = token.token_type();
-            if let Some(((), bp)) = prefix_binding_power(&token_type) {
+            if let Some(((), bp)) = prefix_binding_power(token_type) {
                 let operator = self.token_as_operator(token).unwrap();
                 let rhs = self.parse_expression_pratt(bp)?;
                 PExpression::Cons(operator, vec![rhs])
@@ -529,15 +529,9 @@ fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
 }
 
 fn is_token_prefix_operator(token_type: &TokenType) -> bool {
-    match token_type {
-        TokenType::Plus | TokenType::Minus => true,
-        _ => false,
-    }
+    matches!(token_type, TokenType::Plus | TokenType::Minus)
 }
 
 fn is_token_expression_atom(token_type: &TokenType) -> bool {
-    match token_type {
-        TokenType::Identifier | TokenType::Literal => true,
-        _ => false,
-    }
+    matches!(token_type, TokenType::Identifier | TokenType::Literal)
 }

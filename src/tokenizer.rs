@@ -30,7 +30,7 @@ impl<'a> Token<'a> {
         &self.token_type
     }
     pub fn lexeme(&self) -> &'a str {
-        &self.lexeme
+        self.lexeme
     }
 
     pub fn location(&self) -> &TokenLocation {
@@ -65,7 +65,7 @@ impl<'a> Tokenizer<'a> {
             self.char_indices = it;
             return Some(&self.code[first_index..last_index + 1]);
         }
-        return None;
+        None
     }
 
     /// @returns Option<(first, last, iterator)>
@@ -80,11 +80,7 @@ impl<'a> Tokenizer<'a> {
     {
         let mut it_clone = it.clone();
 
-        let first = it_clone.next();
-        if first.is_none() {
-            return None;
-        }
-        let (first_index, first_char) = first.unwrap();
+        let (first_index, first_char) = it_clone.next()?;
         if !condition(first_char) {
             return None;
         }
@@ -103,7 +99,7 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        return Some((first_index, last_index, it_clone));
+        Some((first_index, last_index, it_clone))
     }
 
     fn consume_whitespace(&mut self) -> Option<&'a str> {
@@ -196,7 +192,7 @@ impl<'a> Tokenizer<'a> {
             return Some(self.match_token(it, TokenType::Literal, first_index, last_index));
         }
 
-        return None;
+        None
     }
 }
 
