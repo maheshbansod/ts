@@ -3,9 +3,10 @@ use std::str::CharIndices;
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
     Assign,
-    Literal,
     Identifier,
     Let,
+    Literal,
+    Minus,
     Plus,
     Semicolon,
 }
@@ -163,6 +164,7 @@ impl<'a> Tokenizer<'a> {
         let mut it_clone = self.char_indices.clone();
         match it_clone.next() {
             Some((first, '+')) => Some(self.match_token(it_clone, TokenType::Plus, first, first)),
+            Some((first, '-')) => Some(self.match_token(it_clone, TokenType::Minus, first, first)),
             Some((first, '=')) => Some(self.match_token(it_clone, TokenType::Assign, first, first)),
             Some((first, ';')) => {
                 Some(self.match_token(it_clone, TokenType::Semicolon, first, first))
@@ -321,6 +323,17 @@ third = first + second;
         let expected = Token::new(TokenType::Literal, TokenLocation { row: 1, column: 1 }, "1");
 
         assert_eq!(expected, next);
+    }
+
+    #[test]
+    fn minus() {
+        let mut tokenizer = Tokenizer::new("-1");
+        let output = tokenizer.next().expect("should exis");
+        let expected = Token::new(TokenType::Minus, TokenLocation { row: 1, column: 1 }, "-");
+        assert_eq!(output, expected);
+        let output = tokenizer.next().expect("should exis");
+        let expected = Token::new(TokenType::Literal, TokenLocation { row: 1, column: 2 }, "1");
+        assert_eq!(output, expected);
     }
 
     #[test]
