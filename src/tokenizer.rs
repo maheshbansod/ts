@@ -198,12 +198,19 @@ impl<'a> Tokenizer<'a> {
 
                 // consume this one
                 self.char_indices.next().expect("is the quote");
-                let (_, _, mut it) =
-                    Tokenizer::consume_while_it(&self.char_indices, |c| c != quote).unwrap();
-                // consuming end quote
+                let mut it = if let Some((_, _, it)) =
+                    Tokenizer::consume_while_it(&self.char_indices, |c| c != quote)
+                {
+                    it
+                } else {
+                    // empty string
+                    self.char_indices.clone()
+                };
+
                 let (last_index, _) = it
                     .next()
                     .expect("todo: should propagate an error of missing end quote");
+                // consuming end quote
                 let literal = self.match_token(it, TokenType::Literal, first_index, last_index);
                 Some(literal)
             }
@@ -345,6 +352,19 @@ third = first + second;
             TokenType::Literal,
             TokenLocation { row: 1, column: 1 },
             "\"1\"",
+        );
+        assert_eq!(expected, next);
+    }
+
+    #[test]
+    fn it_should_tokenize_empty_string_literal() {
+        let code = "''";
+        let mut tokenizer = Tokenizer::new(code);
+        let next = tokenizer.next().expect("Literal exists");
+        let expected = Token::new(
+            TokenType::Literal,
+            TokenLocation { row: 1, column: 1 },
+            "''",
         );
         assert_eq!(expected, next);
     }
