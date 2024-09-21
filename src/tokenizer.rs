@@ -185,14 +185,30 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn try_consume_literal(&mut self) -> Option<Token<'a>> {
-        // only number for now
-        if let Some((first_index, last_index, it)) =
-            Tokenizer::consume_while_it(&self.char_indices, |c| c.is_numeric())
-        {
-            return Some(self.match_token(it, TokenType::Literal, first_index, last_index));
-        }
+        let mut it_clone = self.char_indices.clone();
+        match it_clone.next() {
+            Some((_, c)) if c.is_numeric() => {
+                let (first_index, last_index, it) =
+                    Tokenizer::consume_while_it(&self.char_indices, |c| c.is_numeric()).unwrap();
+                Some(self.match_token(it, TokenType::Literal, first_index, last_index))
+            }
+            Some((first_index, c)) if c == '\'' || c == '"' => {
+                let quote = c;
+                // implementing super simple naive algo
 
-        None
+                // consume this one
+                self.char_indices.next().expect("is the quote");
+                let (_, _, mut it) =
+                    Tokenizer::consume_while_it(&self.char_indices, |c| c != quote).unwrap();
+                // consuming end quote
+                let (last_index, _) = it
+                    .next()
+                    .expect("todo: should propagate an error of missing end quote");
+                let literal = self.match_token(it, TokenType::Literal, first_index, last_index);
+                Some(literal)
+            }
+            _ => None,
+        }
     }
 }
 
@@ -312,7 +328,29 @@ third = first + second;
     }
 
     #[test]
-    fn it_should_tokenize_literal() {
+    fn it_should_tokenize_string_literal() {
+        let code = "'1'";
+        let mut tokenizer = Tokenizer::new(code);
+        let next = tokenizer.next().expect("Literal exists");
+        let expected = Token::new(
+            TokenType::Literal,
+            TokenLocation { row: 1, column: 1 },
+            "'1'",
+        );
+        assert_eq!(expected, next);
+        let code = "\"1\"";
+        let mut tokenizer = Tokenizer::new(code);
+        let next = tokenizer.next().expect("Literal exists");
+        let expected = Token::new(
+            TokenType::Literal,
+            TokenLocation { row: 1, column: 1 },
+            "\"1\"",
+        );
+        assert_eq!(expected, next);
+    }
+
+    #[test]
+    fn it_should_tokenize_number_literal() {
         let code = "1";
         let mut tokenizer = Tokenizer::new(code);
         let next = tokenizer.next().expect("Literal exists");
