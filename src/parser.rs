@@ -1,5 +1,6 @@
 use std::{error::Error, fmt::Display, iter::Peekable};
 
+use crate::string_utils::unquote_string;
 use crate::tokenizer::{Token, TokenType, Tokenizer};
 
 pub struct Parser<'a> {
@@ -174,10 +175,16 @@ impl<'a> Parser<'a> {
 
     fn atom_from_token(&self, token: Token<'a>) -> ParseResult<'a, PAtom<'a>> {
         match token.token_type() {
-            TokenType::Literal => Ok(PAtom::Literal(PLiteral::Number {
-                value: token.lexeme().parse::<f32>().expect("it to be a number"),
-                token,
-            })),
+            TokenType::Literal => {
+                if let Ok(n) = token.lexeme().parse::<f32>() {
+                    Ok(PAtom::Literal(PLiteral::Number { value: n, token }))
+                } else {
+                    Ok(PAtom::Literal(PLiteral::String {
+                        value: unquote_string(token.lexeme()),
+                        token,
+                    }))
+                }
+            }
             TokenType::Identifier => Ok(PAtom::Identifier(PIdentifier { token })),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
@@ -227,6 +234,10 @@ enum PLiteral<'a> {
         value: f32, // to check what value we should keep
         token: Token<'a>,
     },
+    String {
+        value: &'a str,
+        token: Token<'a>,
+    },
 }
 
 #[derive(Debug, PartialEq)]
@@ -270,6 +281,7 @@ impl<'a> Display for PLiteral<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PLiteral::Number { value, .. } => write!(f, "{}", value),
+            PLiteral::String { value, .. } => write!(f, "str({})", value),
         }
     }
 }
@@ -428,6 +440,24 @@ let z = x + y;
                     TokenType::Identifier,
                     TokenLocation { row: 1, column: 1 },
                     "ident"
+                )
+            }))
+        );
+    }
+
+    #[test]
+    fn it_should_parse_string_atom() {
+        let code = "'1'";
+        let tokenizer = Tokenizer::new(code);
+        let mut parser = Parser::new(tokenizer);
+        assert_eq!(
+            parser.parse_expression().expect("should parse"),
+            PExpression::Atom(PAtom::Literal(PLiteral::String {
+                value: "1",
+                token: Token::new(
+                    TokenType::Literal,
+                    TokenLocation { row: 1, column: 1 },
+                    "'1'"
                 )
             }))
         );
