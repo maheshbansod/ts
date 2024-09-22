@@ -140,7 +140,7 @@ impl<'a> Parser<'a> {
                 return Err(ParserError::UnexpectedToken(token));
             }
         } else if let (Some(atom), _errors) = {
-            let token = self.tokenizer.next().unwrap();
+            let token = token.clone();
             self.try_parse_atom(token)
         }? {
             PExpression::Atom(atom)
@@ -181,6 +181,7 @@ impl<'a> Parser<'a> {
         let token = first_token;
         match token.token_type() {
             TokenType::Literal => {
+                self.tokenizer.next();
                 if let Ok(n) = token.lexeme().parse::<f32>() {
                     Ok((
                         Some(PAtom::Literal(PLiteral::Number { value: n, token })),
@@ -191,6 +192,7 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenType::StringLiteralStart => {
+                self.tokenizer.next();
                 let start_token = token;
                 if let Some(next) = self.tokenizer.next() {
                     let (value, value_token, end_token) = match next.token_type() {
@@ -227,6 +229,7 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenType::Function => {
+                self.tokenizer.next();
                 // todo - we need to make identifier compulsary for function statements i think.
                 let identifier = self.parse_identifier().ok();
                 self.expect_token(TokenType::ParenthesisOpen)?;
@@ -243,7 +246,10 @@ impl<'a> Parser<'a> {
                     errors,
                 ))
             }
-            TokenType::Identifier => Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![])),
+            TokenType::Identifier => {
+                self.tokenizer.next();
+                Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![]))
+            }
             _ => Ok((None, vec![])),
         }
     }
