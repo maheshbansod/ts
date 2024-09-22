@@ -3,14 +3,16 @@ use std::str::CharIndices;
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
     Assign,
+    BraceClose,
+    BraceOpen,
     Identifier,
     Let,
     Literal,
-    StringLiteralStart,
-    StringLiteralEnd,
     Minus,
     Plus,
     Semicolon,
+    StringLiteralStart,
+    StringLiteralEnd,
 }
 
 #[derive(Debug, PartialEq)]
@@ -193,6 +195,12 @@ impl<'a> Tokenizer<'a> {
             Some((first, '+')) => Some(self.match_token(it_clone, TokenType::Plus, first, first)),
             Some((first, '-')) => Some(self.match_token(it_clone, TokenType::Minus, first, first)),
             Some((first, '=')) => Some(self.match_token(it_clone, TokenType::Assign, first, first)),
+            Some((first, '{')) => {
+                Some(self.match_token(it_clone, TokenType::BraceOpen, first, first))
+            }
+            Some((first, '}')) => {
+                Some(self.match_token(it_clone, TokenType::BraceClose, first, first))
+            }
             Some((first, ';')) => {
                 Some(self.match_token(it_clone, TokenType::Semicolon, first, first))
             }
@@ -591,5 +599,50 @@ let second = 40;
             assert_eq!(actual_token.lexeme(), lexeme);
             assert_eq!(actual_token.location(), &location);
         }
+    }
+
+    #[test]
+    fn block() {
+        let code = "
+        {
+x + y;
+        }
+x
+        ";
+        let tokenizer = Tokenizer::new(code);
+        let expected_tokens = vec![
+            Token::new(
+                TokenType::BraceOpen,
+                TokenLocation { row: 2, column: 9 },
+                "{",
+            ),
+            Token::new(
+                TokenType::Identifier,
+                TokenLocation { row: 3, column: 1 },
+                "x",
+            ),
+            Token::new(TokenType::Plus, TokenLocation { row: 3, column: 3 }, "+"),
+            Token::new(
+                TokenType::Identifier,
+                TokenLocation { row: 3, column: 5 },
+                "y",
+            ),
+            Token::new(
+                TokenType::Semicolon,
+                TokenLocation { row: 3, column: 6 },
+                ";",
+            ),
+            Token::new(
+                TokenType::BraceClose,
+                TokenLocation { row: 4, column: 9 },
+                "}",
+            ),
+            Token::new(
+                TokenType::Identifier,
+                TokenLocation { row: 5, column: 1 },
+                "x",
+            ),
+        ];
+        assert_eq!(expected_tokens, tokenizer.collect::<Vec<_>>());
     }
 }
