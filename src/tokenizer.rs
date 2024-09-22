@@ -5,6 +5,7 @@ pub enum TokenType {
     Assign,
     BraceClose,
     BraceOpen,
+    Function,
     Identifier,
     Let,
     Literal,
@@ -185,6 +186,20 @@ impl<'a> Tokenizer<'a> {
                 },
                 _ => None,
             },
+            Some((first, 'f')) => {
+                let rest = "unction";
+
+                let mut last = first;
+                for c in rest.chars() {
+                    let (i, actual_c) = it_clone.next()?;
+                    if actual_c != c {
+                        return None;
+                    }
+                    last = i;
+                }
+
+                Some(self.match_token(it_clone, TokenType::Function, first, last))
+            }
             _ => None,
         }
     }
@@ -644,5 +659,21 @@ x
             ),
         ];
         assert_eq!(expected_tokens, tokenizer.collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn keywords() {
+        let code = "let function";
+        let tokenizer = Tokenizer::new(code);
+        let expected_tokens = vec![
+            Token::new(TokenType::Let, TokenLocation { row: 1, column: 1 }, "let"),
+            Token::new(
+                TokenType::Function,
+                TokenLocation { row: 1, column: 5 },
+                "function",
+            ),
+        ];
+        let actual_tokens = tokenizer.collect::<Vec<_>>();
+        assert_eq!(actual_tokens, expected_tokens);
     }
 }
