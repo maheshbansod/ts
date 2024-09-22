@@ -233,14 +233,30 @@ impl<'a> Parser<'a> {
                 // todo - we need to make identifier compulsary for function statements i think.
                 let identifier = self.parse_identifier().ok();
                 self.expect_token(TokenType::ParenthesisOpen)?;
-                // todo parse args
-                self.expect_token(TokenType::ParenthesisClose)?;
+                let mut args = vec![];
+                loop {
+                    match self.parse_identifier() {
+                        Ok(identifier) => {
+                            args.push(identifier);
+                        }
+                        Err(_e) => {
+                            self.expect_token(TokenType::ParenthesisClose)?;
+                            break;
+                        }
+                    }
+                    let token = self
+                        .expect_token(TokenType::Comma)
+                        .or_else(|_| self.expect_token(TokenType::ParenthesisClose))?;
+                    if token.token_type() == &TokenType::ParenthesisClose {
+                        break;
+                    }
+                }
                 self.expect_token(TokenType::BraceOpen)?;
                 let (statements, errors) = self.parse_block_statements(true)?;
                 Ok((
                     Some(PAtom::Function(PFunction {
                         identifier,
-                        arguments: vec![],
+                        arguments: args,
                         body: statements,
                     })),
                     errors,
@@ -362,7 +378,7 @@ struct PIdentifier<'a> {
 struct PFunction<'a> {
     identifier: Option<PIdentifier<'a>>,
     /// Args - WIP
-    arguments: Vec<()>,
+    arguments: Vec<PIdentifier<'a>>,
     body: Vec<PStatement<'a>>,
 }
 
@@ -989,6 +1005,50 @@ let x = function () {};
                         arguments: vec![],
                         body: vec![],
                     }))),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+    }
+
+    #[test]
+    fn function_with_args() {
+        let code = "
+function foo(arg1, arg2) {}
+        ";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, errors) = parser.parse().expect("should parse");
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Atom(PAtom::Function(PFunction {
+                        identifier: Some(PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 2, column: 10 },
+                                "foo",
+                            ),
+                        }),
+                        arguments: vec![
+                            PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 2, column: 14 },
+                                    "arg1",
+                                ),
+                            },
+                            PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 2, column: 20 },
+                                    "arg2",
+                                ),
+                            },
+                        ],
+                        body: vec![],
+                    })),
                 }],
             },
         };
