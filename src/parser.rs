@@ -83,7 +83,8 @@ impl<'a> Parser<'a> {
         Ok((statement, errors))
     }
 
-    /// Parse binding type statement - assume the first keyword (let/const) is already consumed
+    /// Parse binding type statement - assume the next token is already checked to be
+    /// a binding type token
     fn parse_binding(&mut self, binding_type: BindingType) -> ParseResult<'a, PStatement<'a>> {
         self.tokenizer.next();
         let identifier = self.parse_identifier()?;
