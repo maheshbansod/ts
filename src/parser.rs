@@ -44,8 +44,9 @@ impl<'a> Parser<'a> {
                 // let binding
                 self.parse_binding()?
             } else {
-                let next_token = self.tokenizer.next().expect("token was already peeked");
-                return Err(ParserError::UnexpectedToken(next_token));
+                // okay let's maybe parse expression directly here
+                let expression = self.parse_expression()?;
+                PStatement::Expression { expression }
             }
         } else {
             return Err(ParserError::UnexpectedEof);
@@ -246,6 +247,9 @@ enum PStatement<'a> {
         binding_type: BindingType,
         identifier: PIdentifier<'a>,
         value: Option<PExpression<'a>>,
+    },
+    Expression {
+        expression: PExpression<'a>,
     },
 }
 
@@ -612,6 +616,29 @@ let z = x + y;
                 ]
             )
         );
+    }
+
+    #[test]
+    fn expression_statement() {
+        let code = "y;";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, error) = parser.parse().expect("should parse");
+        assert_eq!(error, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                        token: Token::new(
+                            TokenType::Identifier,
+                            TokenLocation { row: 1, column: 1 },
+                            "y",
+                        ),
+                    })),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
     }
 }
 
