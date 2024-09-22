@@ -64,9 +64,8 @@ impl<'a> Parser<'a> {
 
     fn parse_statement(&mut self) -> ParseResult<'a, (PStatement<'a>, Vec<ParserError<'a>>)> {
         let (statement, errors) = if let Some(next_token) = self.tokenizer.peek() {
-            if next_token.token_type() == &TokenType::Let {
-                // let binding
-                (self.parse_binding()?, vec![])
+            if let Ok(binding_type) = next_token.token_type().clone().try_into() {
+                (self.parse_binding(binding_type)?, vec![])
             } else if next_token.token_type() == &TokenType::BraceOpen {
                 // we're in a block hmmm
                 self.tokenizer.next(); // consume brace
@@ -84,12 +83,12 @@ impl<'a> Parser<'a> {
         Ok((statement, errors))
     }
 
-    fn parse_binding(&mut self) -> ParseResult<'a, PStatement<'a>> {
-        self.expect_token(TokenType::Let)?;
-        let binding_type = BindingType::Let;
+    /// Parse binding type statement - assume the first keyword (let/const) is already consumed
+    fn parse_binding(&mut self, binding_type: BindingType) -> ParseResult<'a, PStatement<'a>> {
+        self.tokenizer.next();
         let identifier = self.parse_identifier()?;
         let value = {
-            if let Ok(()) = self.expect_token(TokenType::Assign) {
+            if let Ok(_) = self.expect_token(TokenType::Assign) {
                 Some(self.parse_expression()?)
             } else {
                 None
@@ -255,7 +254,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Check if a token is there and consume
-    fn expect_token(&mut self, token_type: TokenType) -> ParseResult<'a, ()> {
+    fn expect_token(&mut self, token_type: TokenType) -> ParseResult<'a, Token<'a>> {
         if let Some(token) = self.tokenizer.peek() {
             if token.token_type() != &token_type {
                 Err(ParserError::ExpectedToken {
@@ -263,8 +262,8 @@ impl<'a> Parser<'a> {
                     got: token.clone(),
                 })
             } else {
-                self.tokenizer.next().expect("We peeked in the above if");
-                Ok(())
+                let token = self.tokenizer.next().expect("We peeked in the above if");
+                Ok(token)
             }
         } else {
             Err(ParserError::UnexpectedEof)
@@ -369,6 +368,7 @@ struct PFunction<'a> {
 #[derive(Debug, PartialEq)]
 enum BindingType {
     Let,
+    Const,
 }
 
 #[derive(Debug, PartialEq)]
@@ -463,6 +463,18 @@ impl<'a> Display for ParserError<'a> {
             ParserError::ExpectedToken { expected, got } => {
                 write!(f, "Expected token type {expected:?}, got {got:?}")
             }
+        }
+    }
+}
+
+impl TryFrom<TokenType> for BindingType {
+    type Error = ();
+
+    fn try_from(value: TokenType) -> Result<Self, Self::Error> {
+        match value {
+            TokenType::Const => Ok(BindingType::Const),
+            TokenType::Let => Ok(BindingType::Let),
+            _ => Err(()),
         }
     }
 }
@@ -562,6 +574,48 @@ let z = x + y;
 
         assert_eq!(errors, vec![]);
         assert_eq!(tree, expected_tree);
+    }
+
+    #[test]
+    fn bindings() -> Result<(), Box<dyn Error>> {
+        let code = "
+let x;
+const y;
+";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, errors) = parser.parse()?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![
+                    PStatement::Binding {
+                        binding_type: BindingType::Let,
+                        identifier: PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 2, column: 5 },
+                                "x",
+                            ),
+                        },
+                        value: None,
+                    },
+                    PStatement::Binding {
+                        binding_type: BindingType::Const,
+                        identifier: PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 3, column: 7 },
+                                "y",
+                            ),
+                        },
+                        value: None,
+                    },
+                ],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+        Ok(())
     }
 
     #[test]
