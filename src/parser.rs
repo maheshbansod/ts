@@ -121,19 +121,25 @@ impl<'a> Parser<'a> {
         &mut self,
         min_binding_power: u8,
     ) -> ParseResult<'a, PExpression<'a>> {
-        let token = self.tokenizer.next().ok_or(ParserError::UnexpectedEof)?;
-        let mut lhs = if is_token_expression_atom_start(token.token_type()) {
-            PExpression::Atom(self.atom_from_token(token).unwrap())
-        } else if is_token_prefix_operator(token.token_type()) {
+        let token = self.tokenizer.peek().ok_or(ParserError::UnexpectedEof)?;
+        let mut lhs = if is_token_prefix_operator(token.token_type()) {
             let token_type = token.token_type();
             if let Some(((), bp)) = prefix_binding_power(token_type) {
+                let token = self.tokenizer.next().unwrap();
                 let operator = self.token_as_operator(token).unwrap();
                 let rhs = self.parse_expression_pratt(bp)?;
                 PExpression::Cons(operator, vec![rhs])
             } else {
+                let token = self.tokenizer.next().unwrap();
                 return Err(ParserError::UnexpectedToken(token));
             }
+        } else if let (Some(atom), _errors) = {
+            let token = self.tokenizer.next().unwrap();
+            self.try_parse_atom(token)
+        }? {
+            PExpression::Atom(atom)
         } else {
+            let token = self.tokenizer.next().unwrap();
             return Err(ParserError::UnexpectedToken(token));
         };
 
@@ -160,6 +166,63 @@ impl<'a> Parser<'a> {
             break;
         }
         Ok(lhs)
+    }
+
+    fn try_parse_atom(
+        &mut self,
+        first_token: Token<'a>,
+    ) -> ParseResult<'a, (Option<PAtom<'a>>, Vec<ParserError<'a>>)> {
+        let token = first_token;
+        match token.token_type() {
+            TokenType::Literal => {
+                if let Ok(n) = token.lexeme().parse::<f32>() {
+                    Ok((
+                        Some(PAtom::Literal(PLiteral::Number { value: n, token })),
+                        vec![],
+                    ))
+                } else {
+                    Err(ParserError::UnexpectedToken(token))
+                }
+            }
+            TokenType::StringLiteralStart => {
+                let start_token = token;
+                if let Some(next) = self.tokenizer.next() {
+                    let (value, value_token, end_token) = match next.token_type() {
+                        TokenType::Literal => Ok((next.lexeme(), Some(next), None)),
+                        TokenType::StringLiteralEnd => Ok(("", None, Some(next))),
+                        _ => Err(ParserError::UnexpectedToken(next)),
+                    }?;
+
+                    let end_token = if end_token.is_none() {
+                        if let Some(next) = self.tokenizer.next() {
+                            if next.token_type() == &TokenType::StringLiteralEnd {
+                                Ok(next)
+                            } else {
+                                Err(ParserError::UnexpectedToken(next))
+                            }
+                        } else {
+                            Err(ParserError::UnexpectedEof)
+                        }
+                    } else {
+                        Ok(end_token.unwrap())
+                    }?;
+
+                    Ok((
+                        Some(PAtom::Literal(PLiteral::String {
+                            start_delim: start_token,
+                            end_delim: end_token,
+                            value,
+                            value_token,
+                        })),
+                        vec![],
+                    ))
+                } else {
+                    Err(ParserError::UnexpectedEof)
+                }
+            }
+            TokenType::Identifier => Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![])),
+            _ => Ok((None, vec![])),
+        }
     }
 
     /// Check if a token is there and consume
@@ -196,57 +259,6 @@ impl<'a> Parser<'a> {
         match token.token_type() {
             TokenType::Plus => Ok(POperator::BinaryAdd(token)),
             TokenType::Minus => Ok(POperator::Minus(token)),
-            _ => Err(ParserError::UnexpectedToken(token)),
-        }
-    }
-
-    fn atom_from_token(&mut self, token: Token<'a>) -> ParseResult<'a, PAtom<'a>> {
-        match token.token_type() {
-            TokenType::Literal => {
-                if let Ok(n) = token.lexeme().parse::<f32>() {
-                    Ok(PAtom::Literal(PLiteral::Number { value: n, token }))
-                } else {
-                    Err(ParserError::UnexpectedToken(token))
-                }
-            }
-            TokenType::StringLiteralStart => {
-                let start_token = token;
-                if let Some(next) = self.tokenizer.next() {
-                    println!("next: {:?}", next);
-                    let (value, value_token, end_token) = match next.token_type() {
-                        TokenType::Literal => {
-                            // string literal
-                            Ok((next.lexeme(), Some(next), None))
-                        }
-                        TokenType::StringLiteralEnd => Ok(("", None, Some(next))),
-                        _ => Err(ParserError::UnexpectedToken(next)),
-                    }?;
-
-                    let end_token = if end_token.is_none() {
-                        if let Some(next) = self.tokenizer.next() {
-                            if next.token_type() == &TokenType::StringLiteralEnd {
-                                Ok(next)
-                            } else {
-                                Err(ParserError::UnexpectedToken(next))
-                            }
-                        } else {
-                            Err(ParserError::UnexpectedEof)
-                        }
-                    } else {
-                        Ok(end_token.unwrap())
-                    }?;
-
-                    Ok(PAtom::Literal(PLiteral::String {
-                        start_delim: start_token,
-                        end_delim: end_token,
-                        value,
-                        value_token,
-                    }))
-                } else {
-                    Err(ParserError::UnexpectedEof)
-                }
-            }
-            TokenType::Identifier => Ok(PAtom::Identifier(PIdentifier { token })),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
@@ -785,11 +797,4 @@ fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
 
 fn is_token_prefix_operator(token_type: &TokenType) -> bool {
     matches!(token_type, TokenType::Plus | TokenType::Minus)
-}
-
-fn is_token_expression_atom_start(token_type: &TokenType) -> bool {
-    matches!(
-        token_type,
-        TokenType::Identifier | TokenType::Literal | TokenType::StringLiteralStart
-    )
 }
