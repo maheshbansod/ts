@@ -10,6 +10,8 @@ pub enum TokenType {
     Let,
     Literal,
     Minus,
+    ParenthesisClose,
+    ParenthesisOpen,
     Plus,
     Semicolon,
     StringLiteralStart,
@@ -215,6 +217,12 @@ impl<'a> Tokenizer<'a> {
             }
             Some((first, '}')) => {
                 Some(self.match_token(it_clone, TokenType::BraceClose, first, first))
+            }
+            Some((first, '(')) => {
+                Some(self.match_token(it_clone, TokenType::ParenthesisOpen, first, first))
+            }
+            Some((first, ')')) => {
+                Some(self.match_token(it_clone, TokenType::ParenthesisClose, first, first))
             }
             Some((first, ';')) => {
                 Some(self.match_token(it_clone, TokenType::Semicolon, first, first))
