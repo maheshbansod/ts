@@ -5,6 +5,7 @@ pub enum TokenType {
     Assign,
     BraceClose,
     BraceOpen,
+    Const,
     Function,
     Identifier,
     Let,
@@ -188,22 +189,33 @@ impl<'a> Tokenizer<'a> {
                 },
                 _ => None,
             },
+            Some((first, 'c')) => {
+                self.consume_rest_keyword(it_clone, first, "onst", TokenType::Const)
+            }
             Some((first, 'f')) => {
-                let rest = "unction";
-
-                let mut last = first;
-                for c in rest.chars() {
-                    let (i, actual_c) = it_clone.next()?;
-                    if actual_c != c {
-                        return None;
-                    }
-                    last = i;
-                }
-
-                Some(self.match_token(it_clone, TokenType::Function, first, last))
+                self.consume_rest_keyword(it_clone, first, "unction", TokenType::Function)
             }
             _ => None,
         }
+    }
+
+    fn consume_rest_keyword<'b>(
+        &mut self,
+        mut it: CharIndices<'a>,
+        first_index: usize,
+        rest: &'b str,
+        token_type: TokenType,
+    ) -> Option<Token<'a>> {
+        let mut last_index = first_index;
+        for c in rest.chars() {
+            let (i, actual_c) = it.next()?;
+            if actual_c != c {
+                return None;
+            }
+            last_index = i;
+        }
+
+        Some(self.match_token(it, token_type, first_index, last_index))
     }
 
     fn try_consume_operator(&mut self) -> Option<Token<'a>> {
@@ -671,7 +683,7 @@ x
 
     #[test]
     fn keywords() {
-        let code = "let function";
+        let code = "let function const";
         let tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(TokenType::Let, TokenLocation { row: 1, column: 1 }, "let"),
@@ -679,6 +691,11 @@ x
                 TokenType::Function,
                 TokenLocation { row: 1, column: 5 },
                 "function",
+            ),
+            Token::new(
+                TokenType::Const,
+                TokenLocation { row: 1, column: 14 },
+                "const",
             ),
         ];
         let actual_tokens = tokenizer.collect::<Vec<_>>();
