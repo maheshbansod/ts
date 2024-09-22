@@ -104,10 +104,10 @@ impl<'a> Parser<'a> {
                 let rhs = self.parse_expression_pratt(bp)?;
                 PExpression::Cons(operator, vec![rhs])
             } else {
-                panic!("expected prefix binding power"); // todo: should this be a ParserResult?
+                return Err(ParserError::UnexpectedToken(token));
             }
         } else {
-            todo!()
+            return Err(ParserError::UnexpectedToken(token));
         };
 
         loop {
