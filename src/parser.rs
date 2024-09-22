@@ -21,11 +21,33 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_root(&mut self) -> ParseResult<'a, (ParseTreeRoot<'a>, Vec<ParserError<'a>>)> {
+        let (statements, errors) = self.parse_block_statements(false)?;
+        Ok((ParseTreeRoot { statements }, errors))
+    }
+
+    fn parse_block_statements(
+        &mut self,
+        is_block: bool,
+    ) -> ParseResult<'a, (Vec<PStatement<'a>>, Vec<ParserError<'a>>)> {
         let mut statements = vec![];
         let mut errors = vec![];
         loop {
+            if is_block
+                && self
+                    .tokenizer
+                    .peek()
+                    .ok_or(ParserError::UnexpectedEof)?
+                    .token_type()
+                    == &TokenType::BraceClose
+            {
+                self.tokenizer.next();
+                break;
+            }
             match self.parse_statement() {
-                Ok(statement) => statements.push(statement),
+                Ok((statement, mut statement_errors)) => {
+                    statements.push(statement);
+                    errors.append(&mut statement_errors);
+                }
                 Err(ParserError::UnexpectedEof) => {
                     if statements.is_empty() {
                         errors.push(ParserError::UnexpectedEof);
@@ -35,24 +57,29 @@ impl<'a> Parser<'a> {
                 Err(e) => errors.push(e),
             }
         }
-        Ok((ParseTreeRoot { statements }, errors))
+        Ok((statements, errors))
     }
 
-    fn parse_statement(&mut self) -> ParseResult<'a, PStatement<'a>> {
-        let statement = if let Some(next_token) = self.tokenizer.peek() {
+    fn parse_statement(&mut self) -> ParseResult<'a, (PStatement<'a>, Vec<ParserError<'a>>)> {
+        let (statement, errors) = if let Some(next_token) = self.tokenizer.peek() {
             if next_token.token_type() == &TokenType::Let {
                 // let binding
-                self.parse_binding()?
+                (self.parse_binding()?, vec![])
+            } else if next_token.token_type() == &TokenType::BraceOpen {
+                // we're in a block hmmm
+                self.tokenizer.next(); // consume brace
+                let (statements, errors) = self.parse_block_statements(true)?;
+                (PStatement::Block { statements }, errors)
             } else {
                 // okay let's maybe parse expression directly here
                 let expression = self.parse_expression()?;
-                PStatement::Expression { expression }
+                (PStatement::Expression { expression }, vec![])
             }
         } else {
             return Err(ParserError::UnexpectedEof);
         };
         self.optional_semicolon();
-        Ok(statement)
+        Ok((statement, errors))
     }
 
     fn parse_binding(&mut self) -> ParseResult<'a, PStatement<'a>> {
@@ -247,6 +274,9 @@ enum PStatement<'a> {
         binding_type: BindingType,
         identifier: PIdentifier<'a>,
         value: Option<PExpression<'a>>,
+    },
+    Block {
+        statements: Vec<PStatement<'a>>,
     },
     Expression {
         expression: PExpression<'a>,
@@ -636,6 +666,103 @@ let z = x + y;
                         ),
                     })),
                 }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+    }
+
+    #[test]
+    fn block() {
+        let code = "
+let x = 1;
+{
+    let y = 2;
+    x + y;
+}
+y;
+        ";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, errors) = parser.parse().expect("should parse");
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![
+                    PStatement::Binding {
+                        binding_type: BindingType::Let,
+                        identifier: PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 2, column: 5 },
+                                "x",
+                            ),
+                        },
+                        value: Some(PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                            value: 1.0,
+                            token: Token::new(
+                                TokenType::Literal,
+                                TokenLocation { row: 2, column: 9 },
+                                "1",
+                            ),
+                        }))),
+                    },
+                    PStatement::Block {
+                        statements: vec![
+                            PStatement::Binding {
+                                binding_type: BindingType::Let,
+                                identifier: PIdentifier {
+                                    token: Token::new(
+                                        TokenType::Identifier,
+                                        TokenLocation { row: 4, column: 9 },
+                                        "y",
+                                    ),
+                                },
+                                value: Some(PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                                    value: 2.0,
+                                    token: Token::new(
+                                        TokenType::Literal,
+                                        TokenLocation { row: 4, column: 13 },
+                                        "2",
+                                    ),
+                                }))),
+                            },
+                            PStatement::Expression {
+                                expression: PExpression::Cons(
+                                    POperator::BinaryAdd(Token::new(
+                                        TokenType::Plus,
+                                        TokenLocation { row: 5, column: 7 },
+                                        "+",
+                                    )),
+                                    vec![
+                                        PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                            token: Token::new(
+                                                TokenType::Identifier,
+                                                TokenLocation { row: 5, column: 5 },
+                                                "x",
+                                            ),
+                                        })),
+                                        PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                            token: Token::new(
+                                                TokenType::Identifier,
+                                                TokenLocation { row: 5, column: 9 },
+                                                "y",
+                                            ),
+                                        })),
+                                    ],
+                                ),
+                            },
+                        ],
+                    },
+                    PStatement::Expression {
+                        expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 7, column: 1 },
+                                "y",
+                            ),
+                        })),
+                    },
+                ],
             },
         };
         assert_eq!(expected_tree, tree);
