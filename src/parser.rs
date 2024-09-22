@@ -224,6 +224,7 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenType::Function => {
+                // todo - we need to make identifier compulsary for function statements i think.
                 let identifier = self.parse_identifier().ok();
                 self.expect_token(TokenType::ParenthesisOpen)?;
                 // todo parse args
@@ -893,6 +894,37 @@ let y = x+1;
             },
         };
         assert_eq!(tree, expected_tree);
+    }
+
+    #[test]
+    fn function_expression_minimal() {
+        let code = "
+let x = function () {};
+        ";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, errors) = parser.parse().expect("should parse");
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Binding {
+                    binding_type: BindingType::Let,
+                    identifier: PIdentifier {
+                        token: Token::new(
+                            TokenType::Identifier,
+                            TokenLocation { row: 2, column: 5 },
+                            "x",
+                        ),
+                    },
+                    value: Some(PExpression::Atom(PAtom::Function(PFunction {
+                        identifier: None,
+                        arguments: vec![],
+                        body: vec![],
+                    }))),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
     }
 }
 
