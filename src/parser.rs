@@ -25,6 +25,8 @@ impl<'a> Parser<'a> {
         Ok((ParseTreeRoot { statements }, errors))
     }
 
+    /// Parses statements in a block and consumes the tokens including the closing brace
+    /// It has no knowledge about opening brace so the caller should consume it
     fn parse_block_statements(
         &mut self,
         is_block: bool,
@@ -220,6 +222,22 @@ impl<'a> Parser<'a> {
                     Err(ParserError::UnexpectedEof)
                 }
             }
+            TokenType::Function => {
+                let identifier = self.parse_identifier().ok();
+                self.expect_token(TokenType::ParenthesisOpen)?;
+                // todo parse args
+                self.expect_token(TokenType::ParenthesisClose)?;
+                self.expect_token(TokenType::BraceOpen)?;
+                let (statements, errors) = self.parse_block_statements(true)?;
+                Ok((
+                    Some(PAtom::Function(PFunction {
+                        identifier,
+                        arguments: vec![],
+                        body: statements,
+                    })),
+                    errors,
+                ))
+            }
             TokenType::Identifier => Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![])),
             _ => Ok((None, vec![])),
         }
@@ -305,6 +323,7 @@ enum PExpression<'a> {
 enum PAtom<'a> {
     Literal(PLiteral<'a>),
     Identifier(PIdentifier<'a>),
+    Function(PFunction<'a>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -327,6 +346,14 @@ struct PIdentifier<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+struct PFunction<'a> {
+    identifier: Option<PIdentifier<'a>>,
+    /// Args - WIP
+    arguments: Vec<()>,
+    body: Vec<PStatement<'a>>,
+}
+
+#[derive(Debug, PartialEq)]
 enum BindingType {
     Let,
 }
@@ -346,6 +373,7 @@ impl<'a> Display for PExpression<'a> {
             PExpression::Atom(atom) => match atom {
                 PAtom::Literal(literal) => write!(f, "{}", literal),
                 PAtom::Identifier(identifier) => write!(f, "{}", identifier),
+                PAtom::Function(function) => write!(f, "{}", function),
             },
             PExpression::Cons(operator, rest) => {
                 write!(f, "{} (", operator)?;
@@ -370,6 +398,28 @@ impl<'a> Display for PLiteral<'a> {
 impl<'a> Display for PIdentifier<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.token.lexeme())
+    }
+}
+
+impl<'a> Display for PFunction<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let fname = if let Some(i) = &self.identifier {
+            i.token.lexeme()
+        } else {
+            "<anon>"
+        };
+        write!(f, "function({})", fname)?;
+        for statement in &self.body {
+            write!(f, "{statement}")?;
+        }
+        write!(f, "functionend({})", fname)?;
+        Ok(())
+    }
+}
+
+impl<'a> Display for PStatement<'a> {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
     }
 }
 
@@ -778,6 +828,70 @@ y;
             },
         };
         assert_eq!(expected_tree, tree);
+    }
+
+    #[test]
+    fn function() {
+        let code = "
+        function f() {
+let y = x+1;
+        }
+        ";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, errors) = parser.parse().expect("Should parse");
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Atom(PAtom::Function(PFunction {
+                        identifier: Some(PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 2, column: 18 },
+                                "f",
+                            ),
+                        }),
+                        arguments: vec![],
+                        body: vec![PStatement::Binding {
+                            binding_type: BindingType::Let,
+                            identifier: PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 3, column: 5 },
+                                    "y",
+                                ),
+                            },
+                            value: Some(PExpression::Cons(
+                                POperator::BinaryAdd(Token::new(
+                                    TokenType::Plus,
+                                    TokenLocation { row: 3, column: 10 },
+                                    "+",
+                                )),
+                                vec![
+                                    PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                        token: Token::new(
+                                            TokenType::Identifier,
+                                            TokenLocation { row: 3, column: 9 },
+                                            "x",
+                                        ),
+                                    })),
+                                    PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                                        value: 1.0,
+                                        token: Token::new(
+                                            TokenType::Literal,
+                                            TokenLocation { row: 3, column: 11 },
+                                            "1",
+                                        ),
+                                    })),
+                                ],
+                            )),
+                        }],
+                    })),
+                }],
+            },
+        };
+        assert_eq!(tree, expected_tree);
     }
 }
 
