@@ -1,6 +1,5 @@
 use std::{error::Error, fmt::Display, iter::Peekable};
 
-use crate::string_utils::unquote_string;
 use crate::tokenizer::{Token, TokenType, Tokenizer};
 
 pub struct Parser<'a> {
@@ -95,7 +94,7 @@ impl<'a> Parser<'a> {
         min_binding_power: u8,
     ) -> ParseResult<'a, PExpression<'a>> {
         let token = self.tokenizer.next().ok_or(ParserError::UnexpectedEof)?;
-        let mut lhs = if is_token_expression_atom(token.token_type()) {
+        let mut lhs = if is_token_expression_atom_start(token.token_type()) {
             PExpression::Atom(self.atom_from_token(token).unwrap())
         } else if is_token_prefix_operator(token.token_type()) {
             let token_type = token.token_type();
@@ -173,16 +172,50 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn atom_from_token(&self, token: Token<'a>) -> ParseResult<'a, PAtom<'a>> {
+    fn atom_from_token(&mut self, token: Token<'a>) -> ParseResult<'a, PAtom<'a>> {
         match token.token_type() {
             TokenType::Literal => {
                 if let Ok(n) = token.lexeme().parse::<f32>() {
                     Ok(PAtom::Literal(PLiteral::Number { value: n, token }))
                 } else {
+                    Err(ParserError::UnexpectedToken(token))
+                }
+            }
+            TokenType::StringLiteralStart => {
+                let start_token = token;
+                if let Some(next) = self.tokenizer.next() {
+                    println!("next: {:?}", next);
+                    let (value, value_token, end_token) = match next.token_type() {
+                        TokenType::Literal => {
+                            // string literal
+                            Ok((next.lexeme(), Some(next), None))
+                        }
+                        TokenType::StringLiteralEnd => Ok(("", None, Some(next))),
+                        _ => Err(ParserError::UnexpectedToken(next)),
+                    }?;
+
+                    let end_token = if end_token.is_none() {
+                        if let Some(next) = self.tokenizer.next() {
+                            if next.token_type() == &TokenType::StringLiteralEnd {
+                                Ok(next)
+                            } else {
+                                Err(ParserError::UnexpectedToken(next))
+                            }
+                        } else {
+                            Err(ParserError::UnexpectedEof)
+                        }
+                    } else {
+                        Ok(end_token.unwrap())
+                    }?;
+
                     Ok(PAtom::Literal(PLiteral::String {
-                        value: unquote_string(token.lexeme()),
-                        token,
+                        start_delim: start_token,
+                        end_delim: end_token,
+                        value,
+                        value_token,
                     }))
+                } else {
+                    Err(ParserError::UnexpectedEof)
                 }
             }
             TokenType::Identifier => Ok(PAtom::Identifier(PIdentifier { token })),
@@ -235,8 +268,10 @@ enum PLiteral<'a> {
         token: Token<'a>,
     },
     String {
+        value_token: Option<Token<'a>>,
         value: &'a str,
-        token: Token<'a>,
+        start_delim: Token<'a>,
+        end_delim: Token<'a>,
     },
 }
 
@@ -454,11 +489,45 @@ let z = x + y;
             parser.parse_expression().expect("should parse"),
             PExpression::Atom(PAtom::Literal(PLiteral::String {
                 value: "1",
-                token: Token::new(
-                    TokenType::Literal,
+                start_delim: Token::new(
+                    TokenType::StringLiteralStart,
                     TokenLocation { row: 1, column: 1 },
-                    "'1'"
-                )
+                    "'"
+                ),
+                value_token: Some(Token::new(
+                    TokenType::Literal,
+                    TokenLocation { row: 1, column: 2 },
+                    "1"
+                )),
+                end_delim: Token::new(
+                    TokenType::StringLiteralEnd,
+                    TokenLocation { row: 1, column: 3 },
+                    "'"
+                ),
+            }))
+        );
+    }
+
+    #[test]
+    fn it_should_parse_empty_string_atom() {
+        let code = "''";
+        let tokenizer = Tokenizer::new(code);
+        let mut parser = Parser::new(tokenizer);
+        assert_eq!(
+            parser.parse_expression().expect("should parse"),
+            PExpression::Atom(PAtom::Literal(PLiteral::String {
+                value: "",
+                start_delim: Token::new(
+                    TokenType::StringLiteralStart,
+                    TokenLocation { row: 1, column: 1 },
+                    "'"
+                ),
+                value_token: None,
+                end_delim: Token::new(
+                    TokenType::StringLiteralEnd,
+                    TokenLocation { row: 1, column: 2 },
+                    "'"
+                ),
             }))
         );
     }
@@ -564,6 +633,9 @@ fn is_token_prefix_operator(token_type: &TokenType) -> bool {
     matches!(token_type, TokenType::Plus | TokenType::Minus)
 }
 
-fn is_token_expression_atom(token_type: &TokenType) -> bool {
-    matches!(token_type, TokenType::Identifier | TokenType::Literal)
+fn is_token_expression_atom_start(token_type: &TokenType) -> bool {
+    matches!(
+        token_type,
+        TokenType::Identifier | TokenType::Literal | TokenType::StringLiteralStart
+    )
 }
