@@ -104,8 +104,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_identifier(&mut self) -> ParseResult<'a, PIdentifier<'a>> {
-        if let Some(token) = self.tokenizer.next() {
+        if let Some(token) = self.tokenizer.peek() {
             if token.token_type() == &TokenType::Identifier {
+                let token = self.tokenizer.next().unwrap();
                 Ok(PIdentifier { token })
             } else {
                 Err(ParserError::ExpectedToken(TokenType::Identifier))
