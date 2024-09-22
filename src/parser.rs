@@ -109,7 +109,10 @@ impl<'a> Parser<'a> {
                 let token = self.tokenizer.next().unwrap();
                 Ok(PIdentifier { token })
             } else {
-                Err(ParserError::ExpectedToken(TokenType::Identifier))
+                Err(ParserError::ExpectedToken {
+                    expected: TokenType::Identifier,
+                    got: token.clone(),
+                })
             }
         } else {
             Err(ParserError::UnexpectedEof)
@@ -247,16 +250,18 @@ impl<'a> Parser<'a> {
 
     /// Check if a token is there and consume
     fn expect_token(&mut self, token_type: TokenType) -> ParseResult<'a, ()> {
-        if !self
-            .tokenizer
-            .peek()
-            .map(|token| (token.token_type() == &token_type))
-            .unwrap_or(false)
-        {
-            Err(ParserError::ExpectedToken(token_type))
+        if let Some(token) = self.tokenizer.peek() {
+            if token.token_type() != &token_type {
+                Err(ParserError::ExpectedToken {
+                    expected: token_type,
+                    got: token.clone(),
+                })
+            } else {
+                self.tokenizer.next().expect("We peeked in the above if");
+                Ok(())
+            }
         } else {
-            self.tokenizer.next().expect("We peeked in the above if");
-            Ok(())
+            Err(ParserError::UnexpectedEof)
         }
     }
 
@@ -364,7 +369,7 @@ enum BindingType {
 pub enum ParserError<'a> {
     UnexpectedEof,
     UnexpectedToken(Token<'a>),
-    ExpectedToken(TokenType),
+    ExpectedToken { expected: TokenType, got: Token<'a> },
 }
 
 impl Error for ParserError<'_> {}
@@ -449,7 +454,9 @@ impl<'a> Display for ParserError<'a> {
             }
             ParserError::UnexpectedEof => write!(f, "Unexpected end of file"),
             // todo: remove Expected token maybe or maybe have what is the current token too
-            ParserError::ExpectedToken(t) => write!(f, "Expected token type {:?}", t),
+            ParserError::ExpectedToken { expected, got } => {
+                write!(f, "Expected token type {expected:?}, got {got:?}")
+            }
         }
     }
 }
@@ -925,6 +932,27 @@ let x = function () {};
             },
         };
         assert_eq!(expected_tree, tree);
+    }
+
+    #[test]
+    fn error_expected() {
+        let code = "
+let x = function ( {};
+        ";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (_tree, errors) = parser.parse().expect("should parse");
+        assert_eq!(
+            errors,
+            vec![ParserError::ExpectedToken {
+                expected: TokenType::ParenthesisClose,
+                got: Token::new(
+                    TokenType::BraceOpen,
+                    TokenLocation { row: 2, column: 20 },
+                    "{"
+                )
+            }]
+        );
     }
 }
 

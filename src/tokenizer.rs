@@ -1,6 +1,6 @@
 use std::str::CharIndices;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     Assign,
     BraceClose,
@@ -18,7 +18,7 @@ pub enum TokenType {
     StringLiteralEnd,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token<'a> {
     token_type: TokenType,
     lexeme: &'a str,
@@ -319,7 +319,7 @@ impl<'a> Iterator for Tokenizer<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TokenLocation {
     pub row: usize,
     pub column: usize,
