@@ -71,6 +71,10 @@ impl<'a> Parser<'a> {
                 self.tokenizer.next(); // consume brace
                 let (statements, errors) = self.parse_block_statements(true)?;
                 (PStatement::Block { statements }, errors)
+            } else if next_token.token_type() == &TokenType::If {
+                self.tokenizer.next();
+                let (statement, errors) = self.parse_if_else()?;
+                (PStatement::If { statement }, errors)
             } else {
                 // okay let's maybe parse expression directly here
                 let expression = self.parse_expression()?;
@@ -101,6 +105,34 @@ impl<'a> Parser<'a> {
             value,
         };
         Ok(statement)
+    }
+
+    /// Assuming the IF token is already parsed here
+    fn parse_if_else(&mut self) -> ParseResult<'a, (PIfStatement<'a>, Vec<ParserError<'a>>)> {
+        let mut errors = vec![];
+        self.expect_token(TokenType::ParenthesisOpen)?;
+        let condition = self.parse_expression()?;
+        self.expect_token(TokenType::ParenthesisClose)?;
+        let (body, mut body_errors) = if self.expect_token(TokenType::BraceOpen).is_ok() {
+            // let's parse the block
+            self.parse_block_statements(true)?
+        } else {
+            let (statement, errors) = self.parse_statement()?;
+            (vec![statement], errors)
+        };
+        errors.append(&mut body_errors);
+        if self.expect_token(TokenType::Else).is_ok() {
+            todo!()
+        }
+        Ok((
+            PIfStatement {
+                condition,
+                body,
+                else_if_statements: vec![],
+                else_body: None,
+            },
+            errors,
+        ))
     }
 
     fn parse_identifier(&mut self) -> ParseResult<'a, PIdentifier<'a>> {
@@ -340,6 +372,9 @@ enum PStatement<'a> {
     Expression {
         expression: PExpression<'a>,
     },
+    If {
+        statement: PIfStatement<'a>,
+    },
 }
 
 #[derive(Debug, PartialEq)]
@@ -372,6 +407,16 @@ enum PLiteral<'a> {
 #[derive(Debug, PartialEq)]
 struct PIdentifier<'a> {
     token: Token<'a>,
+}
+
+#[derive(Debug, PartialEq)]
+struct PIfStatement<'a> {
+    condition: PExpression<'a>,
+    body: Vec<PStatement<'a>>,
+    /// intermediate else ifs in sequence
+    else_if_statements: Vec<PIfStatement<'a>>,
+    /// final else
+    else_body: Option<Vec<PStatement<'a>>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -1074,6 +1119,97 @@ function foo(arg1, arg2) {}
     }
 
     #[test]
+    fn if_basic() {
+        let code = "
+if (1) {
+x
+}";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, errors) = parser.parse().expect("should parse");
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::If {
+                    statement: PIfStatement {
+                        condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                            value: 1.0,
+                            token: Token::new(
+                                TokenType::Literal,
+                                TokenLocation { row: 2, column: 5 },
+                                "1",
+                            ),
+                        })),
+                        body: vec![PStatement::Expression {
+                            expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 3, column: 1 },
+                                    "x",
+                                ),
+                            })),
+                        }],
+                        else_if_statements: vec![],
+                        else_body: None,
+                    },
+                }],
+            },
+        };
+        assert_eq!(tree, expected_tree);
+    }
+
+    #[test]
+    fn if_else_basic() {
+        let code = "
+if (1) {
+x
+} else {
+y
+}
+";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, errors) = parser.parse().expect("should parse");
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::If {
+                    statement: PIfStatement {
+                        condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                            value: 1.0,
+                            token: Token::new(
+                                TokenType::Literal,
+                                TokenLocation { row: 2, column: 5 },
+                                "1",
+                            ),
+                        })),
+                        body: vec![PStatement::Expression {
+                            expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 3, column: 1 },
+                                    "x",
+                                ),
+                            })),
+                        }],
+                        else_if_statements: vec![],
+                        else_body: Some(vec![PStatement::Expression {
+                            expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 3, column: 1 },
+                                    "x",
+                                ),
+                            })),
+                        }]),
+                    },
+                }],
+            },
+        };
+        assert_eq!(tree, expected_tree);
+    }
+
+    #[test]
     fn error_expected() {
         let code = "
 let x = function ( {};
@@ -1092,5 +1228,7 @@ let x = function ( {};
                 )
             }]
         );
+        // } - // editor is acting weird and parsing the above opening brace in string as an
+        // opening brace.
     }
 }
