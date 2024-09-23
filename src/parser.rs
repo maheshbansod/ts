@@ -496,6 +496,24 @@ impl TryFrom<TokenType> for BindingType {
     }
 }
 
+fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
+    match token_type {
+        TokenType::Plus => Some((1, 2)),
+        _ => None,
+    }
+}
+fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
+    match token_type {
+        TokenType::Minus => Some(((), 6)),
+        TokenType::Plus => Some(((), 4)),
+        _ => None,
+    }
+}
+
+fn is_token_prefix_operator(token_type: &TokenType) -> bool {
+    matches!(token_type, TokenType::Plus | TokenType::Minus)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1075,22 +1093,4 @@ let x = function ( {};
             }]
         );
     }
-}
-
-fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
-    match token_type {
-        TokenType::Plus => Some((1, 2)),
-        _ => None,
-    }
-}
-fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
-    match token_type {
-        TokenType::Minus => Some(((), 6)),
-        TokenType::Plus => Some(((), 4)),
-        _ => None,
-    }
-}
-
-fn is_token_prefix_operator(token_type: &TokenType) -> bool {
-    matches!(token_type, TokenType::Plus | TokenType::Minus)
 }
