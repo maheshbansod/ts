@@ -7,8 +7,10 @@ pub enum TokenType {
     BraceOpen,
     Comma,
     Const,
+    Else,
     Function,
     Identifier,
+    If,
     Let,
     Literal,
     Minus,
@@ -184,9 +186,13 @@ impl<'a> Tokenizer<'a> {
             Some((first, 'c')) => {
                 self.consume_rest_keyword(it_clone, first, "onst", TokenType::Const)
             }
+            Some((first, 'e')) => {
+                self.consume_rest_keyword(it_clone, first, "lse", TokenType::Else)
+            }
             Some((first, 'f')) => {
                 self.consume_rest_keyword(it_clone, first, "unction", TokenType::Function)
             }
+            Some((first, 'i')) => self.consume_rest_keyword(it_clone, first, "f", TokenType::If),
             Some((first, 'l')) => match it_clone.next() {
                 Some((_, 'e')) => match it_clone.next() {
                     Some((last, 't')) => {
@@ -702,7 +708,7 @@ x
 
     #[test]
     fn keywords() {
-        let code = "let function const";
+        let code = "let function const if else";
         let tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(TokenType::Let, TokenLocation { row: 1, column: 1 }, "let"),
@@ -715,6 +721,12 @@ x
                 TokenType::Const,
                 TokenLocation { row: 1, column: 14 },
                 "const",
+            ),
+            Token::new(TokenType::If, TokenLocation { row: 1, column: 20 }, "if"),
+            Token::new(
+                TokenType::Else,
+                TokenLocation { row: 1, column: 23 },
+                "else",
             ),
         ];
         let actual_tokens = tokenizer.collect::<Vec<_>>();
