@@ -181,6 +181,12 @@ impl<'a> Tokenizer<'a> {
     fn try_consume_keyword(&mut self) -> Option<Token<'a>> {
         let mut it_clone = self.char_indices.clone();
         match it_clone.next() {
+            Some((first, 'c')) => {
+                self.consume_rest_keyword(it_clone, first, "onst", TokenType::Const)
+            }
+            Some((first, 'f')) => {
+                self.consume_rest_keyword(it_clone, first, "unction", TokenType::Function)
+            }
             Some((first, 'l')) => match it_clone.next() {
                 Some((_, 'e')) => match it_clone.next() {
                     Some((last, 't')) => {
@@ -190,12 +196,6 @@ impl<'a> Tokenizer<'a> {
                 },
                 _ => None,
             },
-            Some((first, 'c')) => {
-                self.consume_rest_keyword(it_clone, first, "onst", TokenType::Const)
-            }
-            Some((first, 'f')) => {
-                self.consume_rest_keyword(it_clone, first, "unction", TokenType::Function)
-            }
             _ => None,
         }
     }
