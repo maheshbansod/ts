@@ -107,29 +107,52 @@ impl<'a> Parser<'a> {
         Ok(statement)
     }
 
-    /// Assuming the IF token is already parsed here
-    fn parse_if_else(&mut self) -> ParseResult<'a, (PIfStatement<'a>, Vec<ParserError<'a>>)> {
+    fn parse_block_or_one(
+        &mut self,
+    ) -> ParseResult<'a, (Vec<PStatement<'a>>, Vec<ParserError<'a>>)> {
+        if self.expect_token(TokenType::BraceOpen).is_ok() {
+            // let's parse the block
+            Ok(self.parse_block_statements(true)?)
+        } else {
+            let (statement, errors) = self.parse_statement()?;
+            Ok((vec![statement], errors))
+        }
+    }
+
+    fn parse_if(&mut self) -> ParseResult<'a, (PIfStatement<'a>, Vec<ParserError<'a>>)> {
         let mut errors = vec![];
         self.expect_token(TokenType::ParenthesisOpen)?;
         let condition = self.parse_expression()?;
         self.expect_token(TokenType::ParenthesisClose)?;
-        let (body, mut body_errors) = if self.expect_token(TokenType::BraceOpen).is_ok() {
-            // let's parse the block
-            self.parse_block_statements(true)?
-        } else {
-            let (statement, errors) = self.parse_statement()?;
-            (vec![statement], errors)
-        };
+        let (body, mut body_errors) = self.parse_block_or_one()?;
         errors.append(&mut body_errors);
-        if self.expect_token(TokenType::Else).is_ok() {
-            todo!()
+        let statement = PIfStatement { condition, body };
+        Ok((statement, errors))
+    }
+
+    /// Assuming the IF token is already parsed here
+    fn parse_if_else(&mut self) -> ParseResult<'a, (PIfElseStatement<'a>, Vec<ParserError<'a>>)> {
+        let (if_statement, mut errors) = self.parse_if()?;
+        let mut else_if_statements = vec![];
+        let mut else_body = None;
+
+        while self.expect_token(TokenType::Else).is_ok() {
+            if self.expect_token(TokenType::If).is_ok() {
+                let (if_statement, mut else_if_errors) = self.parse_if()?;
+                else_if_statements.push(if_statement);
+                errors.append(&mut else_if_errors);
+            } else {
+                let (body, mut body_errors) = self.parse_block_or_one()?;
+                errors.append(&mut body_errors);
+                else_body = Some(body);
+                break;
+            }
         }
         Ok((
-            PIfStatement {
-                condition,
-                body,
-                else_if_statements: vec![],
-                else_body: None,
+            PIfElseStatement {
+                if_statement,
+                else_if_statements,
+                else_body,
             },
             errors,
         ))
@@ -373,7 +396,7 @@ enum PStatement<'a> {
         expression: PExpression<'a>,
     },
     If {
-        statement: PIfStatement<'a>,
+        statement: PIfElseStatement<'a>,
     },
 }
 
@@ -413,6 +436,11 @@ struct PIdentifier<'a> {
 struct PIfStatement<'a> {
     condition: PExpression<'a>,
     body: Vec<PStatement<'a>>,
+}
+
+#[derive(Debug, PartialEq)]
+struct PIfElseStatement<'a> {
+    if_statement: PIfStatement<'a>,
     /// intermediate else ifs in sequence
     else_if_statements: Vec<PIfStatement<'a>>,
     /// final else
@@ -1131,24 +1159,26 @@ x
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::If {
-                    statement: PIfStatement {
-                        condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                            value: 1.0,
-                            token: Token::new(
-                                TokenType::Literal,
-                                TokenLocation { row: 2, column: 5 },
-                                "1",
-                            ),
-                        })),
-                        body: vec![PStatement::Expression {
-                            expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                    statement: PIfElseStatement {
+                        if_statement: PIfStatement {
+                            condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                                value: 1.0,
                                 token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 3, column: 1 },
-                                    "x",
+                                    TokenType::Literal,
+                                    TokenLocation { row: 2, column: 5 },
+                                    "1",
                                 ),
                             })),
-                        }],
+                            body: vec![PStatement::Expression {
+                                expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                    token: Token::new(
+                                        TokenType::Identifier,
+                                        TokenLocation { row: 3, column: 1 },
+                                        "x",
+                                    ),
+                                })),
+                            }],
+                        },
                         else_if_statements: vec![],
                         else_body: None,
                     },
@@ -1163,6 +1193,7 @@ x
         let code = "
 if (1) {
 x
+} else if (0) {
 } else {
 y
 }
@@ -1174,31 +1205,43 @@ y
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::If {
-                    statement: PIfStatement {
-                        condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                            value: 1.0,
-                            token: Token::new(
-                                TokenType::Literal,
-                                TokenLocation { row: 2, column: 5 },
-                                "1",
-                            ),
-                        })),
-                        body: vec![PStatement::Expression {
-                            expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                    statement: PIfElseStatement {
+                        if_statement: PIfStatement {
+                            condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                                value: 1.0,
                                 token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 3, column: 1 },
-                                    "x",
+                                    TokenType::Literal,
+                                    TokenLocation { row: 2, column: 5 },
+                                    "1",
                                 ),
                             })),
+                            body: vec![PStatement::Expression {
+                                expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                    token: Token::new(
+                                        TokenType::Identifier,
+                                        TokenLocation { row: 3, column: 1 },
+                                        "x",
+                                    ),
+                                })),
+                            }],
+                        },
+                        else_if_statements: vec![PIfStatement {
+                            condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                                value: 0.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 4, column: 12 },
+                                    "0",
+                                ),
+                            })),
+                            body: vec![],
                         }],
-                        else_if_statements: vec![],
                         else_body: Some(vec![PStatement::Expression {
                             expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
                                     TokenType::Identifier,
-                                    TokenLocation { row: 3, column: 1 },
-                                    "x",
+                                    TokenLocation { row: 6, column: 1 },
+                                    "y",
                                 ),
                             })),
                         }]),
