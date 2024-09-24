@@ -92,18 +92,6 @@ impl<'a> Parser<'a> {
         Ok((statement, errors))
     }
 
-    fn parse_block_or_one(
-        &mut self,
-    ) -> ParseResult<'a, (Vec<PStatement<'a>>, Vec<ParserError<'a>>)> {
-        if self.expect_token(TokenType::BraceOpen).is_ok() {
-            // let's parse the block
-            Ok(self.parse_block_statements(true)?)
-        } else {
-            let (statement, errors) = self.parse_statement()?;
-            Ok((vec![statement], errors))
-        }
-    }
-
     fn parse_expression(&mut self) -> ParseResult<'a, PExpression<'a>> {
         self.parse_expression_pratt(0)
     }
@@ -331,7 +319,7 @@ struct PIdentifier<'a> {
 #[derive(Debug, PartialEq)]
 struct PIfStatement<'a> {
     condition: PExpression<'a>,
-    body: Vec<PStatement<'a>>,
+    body: Box<PStatement<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -340,7 +328,7 @@ struct PIfElseStatement<'a> {
     /// intermediate else ifs in sequence
     else_if_statements: Vec<PIfStatement<'a>>,
     /// final else
-    else_body: Option<Vec<PStatement<'a>>>,
+    else_body: Option<Box<PStatement<'a>>>,
 }
 
 #[derive(Debug, PartialEq)]

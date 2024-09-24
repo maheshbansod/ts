@@ -8,9 +8,12 @@ impl<'a> Parser<'a> {
         self.expect_token(TokenType::ParenthesisOpen)?;
         let condition = self.parse_expression()?;
         self.expect_token(TokenType::ParenthesisClose)?;
-        let (body, mut body_errors) = self.parse_block_or_one()?;
+        let (body, mut body_errors) = self.parse_statement()?;
         errors.append(&mut body_errors);
-        let statement = PIfStatement { condition, body };
+        let statement = PIfStatement {
+            condition,
+            body: Box::new(body),
+        };
         Ok((statement, errors))
     }
 
@@ -28,9 +31,9 @@ impl<'a> Parser<'a> {
                 else_if_statements.push(if_statement);
                 errors.append(&mut else_if_errors);
             } else {
-                let (body, mut body_errors) = self.parse_block_or_one()?;
+                let (body, mut body_errors) = self.parse_statement()?;
                 errors.append(&mut body_errors);
-                else_body = Some(body);
+                else_body = Some(Box::new(body));
                 break;
             }
         }
@@ -49,11 +52,12 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            PAtom, PExpression, PIdentifier, PIfElseStatement, PIfStatement, PLiteral, PStatement,
-            ParseTree, ParseTreeRoot, Parser,
+            parse_code, PAtom, PExpression, PIdentifier, PIfElseStatement, PIfStatement, PLiteral,
+            PStatement, ParseResult, ParseTree, ParseTreeRoot, Parser,
         },
         tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
     };
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn if_basic() {
@@ -78,15 +82,17 @@ x
                                     "1",
                                 ),
                             })),
-                            body: vec![PStatement::Expression {
-                                expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenType::Identifier,
-                                        TokenLocation { row: 3, column: 1 },
-                                        "x",
-                                    ),
-                                })),
-                            }],
+                            body: Box::new(PStatement::Block {
+                                statements: vec![PStatement::Expression {
+                                    expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                        token: Token::new(
+                                            TokenType::Identifier,
+                                            TokenLocation { row: 3, column: 1 },
+                                            "x",
+                                        ),
+                                    })),
+                                }],
+                            }),
                         },
                         else_if_statements: vec![],
                         else_body: None,
@@ -124,15 +130,17 @@ y
                                     "1",
                                 ),
                             })),
-                            body: vec![PStatement::Expression {
-                                expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenType::Identifier,
-                                        TokenLocation { row: 3, column: 1 },
-                                        "x",
-                                    ),
-                                })),
-                            }],
+                            body: Box::new(PStatement::Block {
+                                statements: vec![PStatement::Expression {
+                                    expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                        token: Token::new(
+                                            TokenType::Identifier,
+                                            TokenLocation { row: 3, column: 1 },
+                                            "x",
+                                        ),
+                                    })),
+                                }],
+                            }),
                         },
                         else_if_statements: vec![PIfStatement {
                             condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
@@ -143,21 +151,70 @@ y
                                     "0",
                                 ),
                             })),
-                            body: vec![],
+                            body: Box::new(PStatement::Block { statements: vec![] }),
                         }],
-                        else_body: Some(vec![PStatement::Expression {
-                            expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 6, column: 1 },
-                                    "y",
-                                ),
-                            })),
-                        }]),
+                        else_body: Some(Box::new(PStatement::Block {
+                            statements: vec![PStatement::Expression {
+                                expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                    token: Token::new(
+                                        TokenType::Identifier,
+                                        TokenLocation { row: 6, column: 1 },
+                                        "y",
+                                    ),
+                                })),
+                            }],
+                        })),
                     },
                 }],
             },
         };
         assert_eq!(tree, expected_tree);
+    }
+
+    #[test]
+    fn single_line<'a>() -> ParseResult<'a, ()> {
+        let code = "if (true) 1 else 0";
+        let (tree, errors) = parse_code(code);
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::If {
+                    statement: PIfElseStatement {
+                        if_statement: PIfStatement {
+                            condition: PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 1, column: 5 },
+                                    "true",
+                                ),
+                            })),
+                            body: Box::new(PStatement::Expression {
+                                expression: PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                                    value: 1.0,
+                                    token: Token::new(
+                                        TokenType::Literal,
+                                        TokenLocation { row: 1, column: 11 },
+                                        "1",
+                                    ),
+                                })),
+                            }),
+                        },
+                        else_if_statements: vec![],
+                        else_body: Some(Box::new(PStatement::Expression {
+                            expression: PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                                value: 0.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 1, column: 18 },
+                                    "0",
+                                ),
+                            })),
+                        })),
+                    },
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+        Ok(())
     }
 }
