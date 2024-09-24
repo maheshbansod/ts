@@ -24,15 +24,16 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            parse_code, PAtom, PExpression, PIdentifier, PStatement, ParseTree, ParseTreeRoot,
+            parse_code, PAtom, PExpression, PIdentifier, PStatement, ParseResult, ParseTree,
+            ParseTreeRoot,
         },
         tokenizer::{Token, TokenLocation, TokenType},
     };
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn sanity() {
-        let (tree, errors) = parse_code("x");
+    fn sanity<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("x")?;
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
@@ -48,5 +49,6 @@ mod tests {
         };
         assert_eq!(errors, vec![]);
         assert_eq!(tree, expected_tree);
+        Ok(())
     }
 }

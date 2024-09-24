@@ -471,10 +471,10 @@ fn is_token_prefix_operator(token_type: &TokenType) -> bool {
 }
 
 #[cfg(test)]
-fn parse_code<'a>(code: &'a str) -> (ParseTree<'a>, Vec<ParserError<'a>>) {
+fn parse_code<'a>(code: &'a str) -> ParseResult<'a, (ParseTree<'a>, Vec<ParserError<'a>>)> {
     let tokenizer = Tokenizer::new(code);
     let parser = Parser::new(tokenizer);
-    parser.parse().expect("parsing failure")
+    parser.parse()
 }
 
 #[cfg(test)]

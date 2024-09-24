@@ -174,7 +174,7 @@ y
     #[test]
     fn single_line<'a>() -> ParseResult<'a, ()> {
         let code = "if (true) 1 else 0";
-        let (tree, errors) = parse_code(code);
+        let (tree, errors) = parse_code(code)?;
         assert_eq!(errors, vec![]);
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
