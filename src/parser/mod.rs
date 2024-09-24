@@ -1,3 +1,8 @@
+mod binding;
+mod function;
+mod identifier;
+mod if_else;
+
 use std::{error::Error, fmt::Display, iter::Peekable};
 
 use crate::tokenizer::{Token, TokenType, Tokenizer};
@@ -87,26 +92,6 @@ impl<'a> Parser<'a> {
         Ok((statement, errors))
     }
 
-    /// Parse binding type statement - assume the next token is already checked to be
-    /// a binding type token
-    pub fn parse_binding(&mut self, binding_type: BindingType) -> ParseResult<'a, PStatement<'a>> {
-        self.tokenizer.next();
-        let identifier = self.parse_identifier()?;
-        let value = {
-            if let Ok(_) = self.expect_token(TokenType::Assign) {
-                Some(self.parse_expression()?)
-            } else {
-                None
-            }
-        };
-        let statement = PStatement::Binding {
-            binding_type,
-            identifier,
-            value,
-        };
-        Ok(statement)
-    }
-
     fn parse_block_or_one(
         &mut self,
     ) -> ParseResult<'a, (Vec<PStatement<'a>>, Vec<ParserError<'a>>)> {
@@ -116,61 +101,6 @@ impl<'a> Parser<'a> {
         } else {
             let (statement, errors) = self.parse_statement()?;
             Ok((vec![statement], errors))
-        }
-    }
-
-    fn parse_if(&mut self) -> ParseResult<'a, (PIfStatement<'a>, Vec<ParserError<'a>>)> {
-        let mut errors = vec![];
-        self.expect_token(TokenType::ParenthesisOpen)?;
-        let condition = self.parse_expression()?;
-        self.expect_token(TokenType::ParenthesisClose)?;
-        let (body, mut body_errors) = self.parse_block_or_one()?;
-        errors.append(&mut body_errors);
-        let statement = PIfStatement { condition, body };
-        Ok((statement, errors))
-    }
-
-    /// Assuming the IF token is already parsed here
-    fn parse_if_else(&mut self) -> ParseResult<'a, (PIfElseStatement<'a>, Vec<ParserError<'a>>)> {
-        let (if_statement, mut errors) = self.parse_if()?;
-        let mut else_if_statements = vec![];
-        let mut else_body = None;
-
-        while self.expect_token(TokenType::Else).is_ok() {
-            if self.expect_token(TokenType::If).is_ok() {
-                let (if_statement, mut else_if_errors) = self.parse_if()?;
-                else_if_statements.push(if_statement);
-                errors.append(&mut else_if_errors);
-            } else {
-                let (body, mut body_errors) = self.parse_block_or_one()?;
-                errors.append(&mut body_errors);
-                else_body = Some(body);
-                break;
-            }
-        }
-        Ok((
-            PIfElseStatement {
-                if_statement,
-                else_if_statements,
-                else_body,
-            },
-            errors,
-        ))
-    }
-
-    fn parse_identifier(&mut self) -> ParseResult<'a, PIdentifier<'a>> {
-        if let Some(token) = self.tokenizer.peek() {
-            if token.token_type() == &TokenType::Identifier {
-                let token = self.tokenizer.next().unwrap();
-                Ok(PIdentifier { token })
-            } else {
-                Err(ParserError::ExpectedToken {
-                    expected: TokenType::Identifier,
-                    got: token.clone(),
-                })
-            }
-        } else {
-            Err(ParserError::UnexpectedEof)
         }
     }
 
@@ -285,37 +215,8 @@ impl<'a> Parser<'a> {
             }
             TokenType::Function => {
                 self.tokenizer.next();
-                // todo - we need to make identifier compulsary for function statements i think.
-                let identifier = self.parse_identifier().ok();
-                self.expect_token(TokenType::ParenthesisOpen)?;
-                let mut args = vec![];
-                loop {
-                    match self.parse_identifier() {
-                        Ok(identifier) => {
-                            args.push(identifier);
-                        }
-                        Err(_e) => {
-                            self.expect_token(TokenType::ParenthesisClose)?;
-                            break;
-                        }
-                    }
-                    let token = self
-                        .expect_token(TokenType::Comma)
-                        .or_else(|_| self.expect_token(TokenType::ParenthesisClose))?;
-                    if token.token_type() == &TokenType::ParenthesisClose {
-                        break;
-                    }
-                }
-                self.expect_token(TokenType::BraceOpen)?;
-                let (statements, errors) = self.parse_block_statements(true)?;
-                Ok((
-                    Some(PAtom::Function(PFunction {
-                        identifier,
-                        arguments: args,
-                        body: statements,
-                    })),
-                    errors,
-                ))
+                let (function, errors) = self.parse_function()?;
+                Ok((Some(PAtom::Function(function)), errors))
             }
             TokenType::Identifier => {
                 self.tokenizer.next();
@@ -353,11 +254,6 @@ impl<'a> Parser<'a> {
     }
 
     fn token_as_operator(&self, token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
-        // if matches!(token.token_type(), TokenType::Plus) {
-        //     Ok(POperator::BinaryAdd(token))
-        // } else {
-        //     Err(ParserError::UnexpectedToken(token))
-        // }
         match token.token_type() {
             TokenType::Plus => Ok(POperator::BinaryAdd(token)),
             TokenType::Minus => Ok(POperator::Minus(token)),
@@ -450,7 +346,6 @@ struct PIfElseStatement<'a> {
 #[derive(Debug, PartialEq)]
 struct PFunction<'a> {
     identifier: Option<PIdentifier<'a>>,
-    /// Args - WIP
     arguments: Vec<PIdentifier<'a>>,
     body: Vec<PStatement<'a>>,
 }
@@ -588,6 +483,13 @@ fn is_token_prefix_operator(token_type: &TokenType) -> bool {
 }
 
 #[cfg(test)]
+fn parse_code<'a>(code: &'a str) -> (ParseTree<'a>, Vec<ParserError<'a>>) {
+    let tokenizer = Tokenizer::new(code);
+    let parser = Parser::new(tokenizer);
+    parser.parse().expect("parsing failure")
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::tokenizer::{Token, TokenLocation, TokenType, Tokenizer};
@@ -682,48 +584,6 @@ let z = x + y;
 
         assert_eq!(errors, vec![]);
         assert_eq!(tree, expected_tree);
-    }
-
-    #[test]
-    fn bindings() -> Result<(), Box<dyn Error>> {
-        let code = "
-let x;
-const y;
-";
-        let tokenizer = Tokenizer::new(code);
-        let parser = Parser::new(tokenizer);
-        let (tree, errors) = parser.parse()?;
-        assert_eq!(errors, vec![]);
-        let expected_tree = ParseTree {
-            root: ParseTreeRoot {
-                statements: vec![
-                    PStatement::Binding {
-                        binding_type: BindingType::Let,
-                        identifier: PIdentifier {
-                            token: Token::new(
-                                TokenType::Identifier,
-                                TokenLocation { row: 2, column: 5 },
-                                "x",
-                            ),
-                        },
-                        value: None,
-                    },
-                    PStatement::Binding {
-                        binding_type: BindingType::Const,
-                        identifier: PIdentifier {
-                            token: Token::new(
-                                TokenType::Identifier,
-                                TokenLocation { row: 3, column: 7 },
-                                "y",
-                            ),
-                        },
-                        value: None,
-                    },
-                ],
-            },
-        };
-        assert_eq!(expected_tree, tree);
-        Ok(())
     }
 
     #[test]
@@ -1005,251 +865,6 @@ y;
             },
         };
         assert_eq!(expected_tree, tree);
-    }
-
-    #[test]
-    fn function() {
-        let code = "
-        function f() {
-let y = x+1;
-        }
-        ";
-        let tokenizer = Tokenizer::new(code);
-        let parser = Parser::new(tokenizer);
-        let (tree, errors) = parser.parse().expect("Should parse");
-        assert_eq!(errors, vec![]);
-        let expected_tree = ParseTree {
-            root: ParseTreeRoot {
-                statements: vec![PStatement::Expression {
-                    expression: PExpression::Atom(PAtom::Function(PFunction {
-                        identifier: Some(PIdentifier {
-                            token: Token::new(
-                                TokenType::Identifier,
-                                TokenLocation { row: 2, column: 18 },
-                                "f",
-                            ),
-                        }),
-                        arguments: vec![],
-                        body: vec![PStatement::Binding {
-                            binding_type: BindingType::Let,
-                            identifier: PIdentifier {
-                                token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 3, column: 5 },
-                                    "y",
-                                ),
-                            },
-                            value: Some(PExpression::Cons(
-                                POperator::BinaryAdd(Token::new(
-                                    TokenType::Plus,
-                                    TokenLocation { row: 3, column: 10 },
-                                    "+",
-                                )),
-                                vec![
-                                    PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                        token: Token::new(
-                                            TokenType::Identifier,
-                                            TokenLocation { row: 3, column: 9 },
-                                            "x",
-                                        ),
-                                    })),
-                                    PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                        value: 1.0,
-                                        token: Token::new(
-                                            TokenType::Literal,
-                                            TokenLocation { row: 3, column: 11 },
-                                            "1",
-                                        ),
-                                    })),
-                                ],
-                            )),
-                        }],
-                    })),
-                }],
-            },
-        };
-        assert_eq!(tree, expected_tree);
-    }
-
-    #[test]
-    fn function_expression_minimal() {
-        let code = "
-let x = function () {};
-        ";
-        let tokenizer = Tokenizer::new(code);
-        let parser = Parser::new(tokenizer);
-        let (tree, errors) = parser.parse().expect("should parse");
-        assert_eq!(errors, vec![]);
-        let expected_tree = ParseTree {
-            root: ParseTreeRoot {
-                statements: vec![PStatement::Binding {
-                    binding_type: BindingType::Let,
-                    identifier: PIdentifier {
-                        token: Token::new(
-                            TokenType::Identifier,
-                            TokenLocation { row: 2, column: 5 },
-                            "x",
-                        ),
-                    },
-                    value: Some(PExpression::Atom(PAtom::Function(PFunction {
-                        identifier: None,
-                        arguments: vec![],
-                        body: vec![],
-                    }))),
-                }],
-            },
-        };
-        assert_eq!(expected_tree, tree);
-    }
-
-    #[test]
-    fn function_with_args() {
-        let code = "
-function foo(arg1, arg2) {}
-        ";
-        let tokenizer = Tokenizer::new(code);
-        let parser = Parser::new(tokenizer);
-        let (tree, errors) = parser.parse().expect("should parse");
-        assert_eq!(errors, vec![]);
-        let expected_tree = ParseTree {
-            root: ParseTreeRoot {
-                statements: vec![PStatement::Expression {
-                    expression: PExpression::Atom(PAtom::Function(PFunction {
-                        identifier: Some(PIdentifier {
-                            token: Token::new(
-                                TokenType::Identifier,
-                                TokenLocation { row: 2, column: 10 },
-                                "foo",
-                            ),
-                        }),
-                        arguments: vec![
-                            PIdentifier {
-                                token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 2, column: 14 },
-                                    "arg1",
-                                ),
-                            },
-                            PIdentifier {
-                                token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 2, column: 20 },
-                                    "arg2",
-                                ),
-                            },
-                        ],
-                        body: vec![],
-                    })),
-                }],
-            },
-        };
-        assert_eq!(expected_tree, tree);
-    }
-
-    #[test]
-    fn if_basic() {
-        let code = "
-if (1) {
-x
-}";
-        let tokenizer = Tokenizer::new(code);
-        let parser = Parser::new(tokenizer);
-        let (tree, errors) = parser.parse().expect("should parse");
-        assert_eq!(errors, vec![]);
-        let expected_tree = ParseTree {
-            root: ParseTreeRoot {
-                statements: vec![PStatement::If {
-                    statement: PIfElseStatement {
-                        if_statement: PIfStatement {
-                            condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                value: 1.0,
-                                token: Token::new(
-                                    TokenType::Literal,
-                                    TokenLocation { row: 2, column: 5 },
-                                    "1",
-                                ),
-                            })),
-                            body: vec![PStatement::Expression {
-                                expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenType::Identifier,
-                                        TokenLocation { row: 3, column: 1 },
-                                        "x",
-                                    ),
-                                })),
-                            }],
-                        },
-                        else_if_statements: vec![],
-                        else_body: None,
-                    },
-                }],
-            },
-        };
-        assert_eq!(tree, expected_tree);
-    }
-
-    #[test]
-    fn if_else_basic() {
-        let code = "
-if (1) {
-x
-} else if (0) {
-} else {
-y
-}
-";
-        let tokenizer = Tokenizer::new(code);
-        let parser = Parser::new(tokenizer);
-        let (tree, errors) = parser.parse().expect("should parse");
-        assert_eq!(errors, vec![]);
-        let expected_tree = ParseTree {
-            root: ParseTreeRoot {
-                statements: vec![PStatement::If {
-                    statement: PIfElseStatement {
-                        if_statement: PIfStatement {
-                            condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                value: 1.0,
-                                token: Token::new(
-                                    TokenType::Literal,
-                                    TokenLocation { row: 2, column: 5 },
-                                    "1",
-                                ),
-                            })),
-                            body: vec![PStatement::Expression {
-                                expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenType::Identifier,
-                                        TokenLocation { row: 3, column: 1 },
-                                        "x",
-                                    ),
-                                })),
-                            }],
-                        },
-                        else_if_statements: vec![PIfStatement {
-                            condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                value: 0.0,
-                                token: Token::new(
-                                    TokenType::Literal,
-                                    TokenLocation { row: 4, column: 12 },
-                                    "0",
-                                ),
-                            })),
-                            body: vec![],
-                        }],
-                        else_body: Some(vec![PStatement::Expression {
-                            expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 6, column: 1 },
-                                    "y",
-                                ),
-                            })),
-                        }]),
-                    },
-                }],
-            },
-        };
-        assert_eq!(tree, expected_tree);
     }
 
     #[test]
