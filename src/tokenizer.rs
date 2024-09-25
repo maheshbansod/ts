@@ -5,6 +5,7 @@ pub enum TokenType {
     Assign,
     BraceClose,
     BraceOpen,
+    Colon,
     Comma,
     Const,
     Else,
@@ -18,8 +19,8 @@ pub enum TokenType {
     ParenthesisOpen,
     Plus,
     Semicolon,
-    StringLiteralStart,
     StringLiteralEnd,
+    StringLiteralStart,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -247,6 +248,7 @@ impl<'a> Tokenizer<'a> {
             Some((first, ';')) => {
                 Some(self.match_token(it_clone, TokenType::Semicolon, first, first))
             }
+            Some((first, ':')) => Some(self.match_token(it_clone, TokenType::Colon, first, first)),
             _ => None,
         }
     }
@@ -691,7 +693,7 @@ x
 
     #[test]
     fn operators() {
-        let code = "+ - ; ,";
+        let code = "+ - ; , :";
         let tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(TokenType::Plus, TokenLocation { row: 1, column: 1 }, "+"),
@@ -702,6 +704,7 @@ x
                 ";",
             ),
             Token::new(TokenType::Comma, TokenLocation { row: 1, column: 7 }, ","),
+            Token::new(TokenType::Colon, TokenLocation { row: 1, column: 9 }, ":"),
         ];
         assert_eq!(expected_tokens, tokenizer.collect::<Vec<_>>())
     }
