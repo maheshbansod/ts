@@ -2,6 +2,7 @@ mod binding;
 mod function;
 mod identifier;
 mod if_else;
+mod object;
 
 use std::{error::Error, fmt::Display, iter::Peekable};
 
@@ -157,7 +158,10 @@ impl<'a> Parser<'a> {
                 self.tokenizer.next();
                 if let Ok(n) = token.lexeme().parse::<f32>() {
                     Ok((
-                        Some(PAtom::Literal(PLiteral::Number { value: n, token })),
+                        Some(PAtom::Literal(PLiteralPrimitive::Number {
+                            value: n,
+                            token,
+                        })),
                         vec![],
                     ))
                 } else {
@@ -189,7 +193,7 @@ impl<'a> Parser<'a> {
                     }?;
 
                     Ok((
-                        Some(PAtom::Literal(PLiteral::String {
+                        Some(PAtom::Literal(PLiteralPrimitive::String {
                             start_delim: start_token,
                             end_delim: end_token,
                             value,
@@ -209,6 +213,11 @@ impl<'a> Parser<'a> {
             TokenType::Identifier => {
                 self.tokenizer.next();
                 Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![]))
+            }
+            TokenType::BraceOpen => {
+                self.tokenizer.next();
+                let object = self.parse_object()?;
+                Ok((Some(PAtom::ObjectLiteral(object)), vec![]))
             }
             _ => Ok((None, vec![])),
         }
@@ -292,13 +301,14 @@ enum PExpression<'a> {
 
 #[derive(Debug, PartialEq)]
 enum PAtom<'a> {
-    Literal(PLiteral<'a>),
+    Literal(PLiteralPrimitive<'a>),
+    ObjectLiteral(PObject<'a>),
     Identifier(PIdentifier<'a>),
     Function(PFunction<'a>),
 }
 
 #[derive(Debug, PartialEq)]
-enum PLiteral<'a> {
+enum PLiteralPrimitive<'a> {
     Number {
         value: f32, // to check what value we should keep
         token: Token<'a>,
@@ -309,6 +319,33 @@ enum PLiteral<'a> {
         start_delim: Token<'a>,
         end_delim: Token<'a>,
     },
+    // Object {
+    //     entries: Vec<PObjectEntry<'a>>,
+    // },
+}
+
+#[derive(Debug, PartialEq)]
+struct PObject<'a> {
+    entries: Vec<PObjectEntry<'a>>,
+}
+
+#[derive(Debug, PartialEq)]
+enum PObjectEntry<'a> {
+    KeyValue(PKeyValue<'a>),
+    Destructure(PExpression<'a>),
+}
+
+#[derive(Debug, PartialEq)]
+struct PKeyValue<'a> {
+    key: PObjectKey<'a>,
+    value: PExpression<'a>,
+}
+
+#[derive(Debug, PartialEq)]
+enum PObjectKey<'a> {
+    Identifier(PIdentifier<'a>),
+    Expression(PExpression<'a>),
+    Literal(PLiteralPrimitive<'a>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -358,6 +395,7 @@ impl<'a> Display for PExpression<'a> {
         match self {
             PExpression::Atom(atom) => match atom {
                 PAtom::Literal(literal) => write!(f, "{}", literal),
+                PAtom::ObjectLiteral(object) => write!(f, "{{{}}}", object),
                 PAtom::Identifier(identifier) => write!(f, "{}", identifier),
                 PAtom::Function(function) => write!(f, "{}", function),
             },
@@ -372,12 +410,31 @@ impl<'a> Display for PExpression<'a> {
     }
 }
 
-impl<'a> Display for PLiteral<'a> {
+impl<'a> Display for PLiteralPrimitive<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PLiteral::Number { value, .. } => write!(f, "{}", value),
-            PLiteral::String { value, .. } => write!(f, "str({})", value),
+            PLiteralPrimitive::Number { value, .. } => write!(f, "{}", value),
+            PLiteralPrimitive::String { value, .. } => write!(f, "str({})", value),
         }
+    }
+}
+
+impl<'a> Display for PObject<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for entry in &self.entries {
+            write!(f, "{},", entry)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a> Display for PObjectEntry<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PObjectEntry::KeyValue(PKeyValue { .. }) => todo!(),
+            PObjectEntry::Destructure(exp) => write!(f, "[{}]", exp)?,
+        }
+        Ok(())
     }
 }
 
@@ -506,14 +563,16 @@ let z = x + y;
                                 "x",
                             ),
                         },
-                        value: Some(PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                            value: 30.0,
-                            token: Token::new(
-                                TokenType::Literal,
-                                TokenLocation { row: 2, column: 9 },
-                                "30",
-                            ),
-                        }))),
+                        value: Some(PExpression::Atom(PAtom::Literal(
+                            PLiteralPrimitive::Number {
+                                value: 30.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 2, column: 9 },
+                                    "30",
+                                ),
+                            },
+                        ))),
                     },
                     PStatement::Binding {
                         binding_type: BindingType::Let,
@@ -524,14 +583,16 @@ let z = x + y;
                                 "y",
                             ),
                         },
-                        value: Some(PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                            value: 100.0,
-                            token: Token::new(
-                                TokenType::Literal,
-                                TokenLocation { row: 3, column: 9 },
-                                "100",
-                            ),
-                        }))),
+                        value: Some(PExpression::Atom(PAtom::Literal(
+                            PLiteralPrimitive::Number {
+                                value: 100.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 3, column: 9 },
+                                    "100",
+                                ),
+                            },
+                        ))),
                     },
                     PStatement::Binding {
                         binding_type: BindingType::Let,
@@ -581,7 +642,7 @@ let z = x + y;
         let mut parser = Parser::new(tokenizer);
         assert_eq!(
             parser.parse_expression().expect("should parse"),
-            PExpression::Atom(PAtom::Literal(PLiteral::Number {
+            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                 value: 1.0,
                 token: Token::new(TokenType::Literal, TokenLocation { row: 1, column: 1 }, "1")
             }))
@@ -608,7 +669,7 @@ let z = x + y;
         let mut parser = Parser::new(tokenizer);
         assert_eq!(
             parser.parse_expression().expect("should parse"),
-            PExpression::Atom(PAtom::Literal(PLiteral::String {
+            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::String {
                 value: "1",
                 start_delim: Token::new(
                     TokenType::StringLiteralStart,
@@ -636,7 +697,7 @@ let z = x + y;
         let mut parser = Parser::new(tokenizer);
         assert_eq!(
             parser.parse_expression().expect("should parse"),
-            PExpression::Atom(PAtom::Literal(PLiteral::String {
+            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::String {
                 value: "",
                 start_delim: Token::new(
                     TokenType::StringLiteralStart,
@@ -685,7 +746,7 @@ let z = x + y;
                     "+"
                 )),
                 vec![
-                    PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                    PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                         value: 4.0,
                         token: Token::new(
                             TokenType::Literal,
@@ -693,7 +754,7 @@ let z = x + y;
                             "4"
                         )
                     })),
-                    PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                    PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                         value: 3.0,
                         token: Token::new(
                             TokenType::Literal,
@@ -784,14 +845,16 @@ y;
                                 "x",
                             ),
                         },
-                        value: Some(PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                            value: 1.0,
-                            token: Token::new(
-                                TokenType::Literal,
-                                TokenLocation { row: 2, column: 9 },
-                                "1",
-                            ),
-                        }))),
+                        value: Some(PExpression::Atom(PAtom::Literal(
+                            PLiteralPrimitive::Number {
+                                value: 1.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 2, column: 9 },
+                                    "1",
+                                ),
+                            },
+                        ))),
                     },
                     PStatement::Block {
                         statements: vec![
@@ -804,14 +867,16 @@ y;
                                         "y",
                                     ),
                                 },
-                                value: Some(PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                    value: 2.0,
-                                    token: Token::new(
-                                        TokenType::Literal,
-                                        TokenLocation { row: 4, column: 13 },
-                                        "2",
-                                    ),
-                                }))),
+                                value: Some(PExpression::Atom(PAtom::Literal(
+                                    PLiteralPrimitive::Number {
+                                        value: 2.0,
+                                        token: Token::new(
+                                            TokenType::Literal,
+                                            TokenLocation { row: 4, column: 13 },
+                                            "2",
+                                        ),
+                                    },
+                                ))),
                             },
                             PStatement::Expression {
                                 expression: PExpression::Cons(

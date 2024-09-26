@@ -44,7 +44,7 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            BindingType, PAtom, PExpression, PFunction, PIdentifier, PLiteral, POperator,
+            BindingType, PAtom, PExpression, PFunction, PIdentifier, PLiteralPrimitive, POperator,
             PStatement, ParseTree, ParseTreeRoot, Parser,
         },
         tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
@@ -96,7 +96,7 @@ let y = x+1;
                                             "x",
                                         ),
                                     })),
-                                    PExpression::Atom(PAtom::Literal(PLiteral::Number {
+                                    PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                         value: 1.0,
                                         token: Token::new(
                                             TokenType::Literal,

@@ -52,8 +52,8 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            parse_code, PAtom, PExpression, PIdentifier, PIfElseStatement, PIfStatement, PLiteral,
-            PStatement, ParseResult, ParseTree, ParseTreeRoot, Parser,
+            parse_code, PAtom, PExpression, PIdentifier, PIfElseStatement, PIfStatement,
+            PLiteralPrimitive, PStatement, ParseResult, ParseTree, ParseTreeRoot, Parser,
         },
         tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
     };
@@ -74,14 +74,16 @@ x
                 statements: vec![PStatement::If {
                     statement: PIfElseStatement {
                         if_statement: PIfStatement {
-                            condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                value: 1.0,
-                                token: Token::new(
-                                    TokenType::Literal,
-                                    TokenLocation { row: 2, column: 5 },
-                                    "1",
-                                ),
-                            })),
+                            condition: PExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 1.0,
+                                    token: Token::new(
+                                        TokenType::Literal,
+                                        TokenLocation { row: 2, column: 5 },
+                                        "1",
+                                    ),
+                                },
+                            )),
                             body: Box::new(PStatement::Block {
                                 statements: vec![PStatement::Expression {
                                     expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
@@ -122,14 +124,16 @@ y
                 statements: vec![PStatement::If {
                     statement: PIfElseStatement {
                         if_statement: PIfStatement {
-                            condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                value: 1.0,
-                                token: Token::new(
-                                    TokenType::Literal,
-                                    TokenLocation { row: 2, column: 5 },
-                                    "1",
-                                ),
-                            })),
+                            condition: PExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 1.0,
+                                    token: Token::new(
+                                        TokenType::Literal,
+                                        TokenLocation { row: 2, column: 5 },
+                                        "1",
+                                    ),
+                                },
+                            )),
                             body: Box::new(PStatement::Block {
                                 statements: vec![PStatement::Expression {
                                     expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
@@ -143,14 +147,16 @@ y
                             }),
                         },
                         else_if_statements: vec![PIfStatement {
-                            condition: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                value: 0.0,
-                                token: Token::new(
-                                    TokenType::Literal,
-                                    TokenLocation { row: 4, column: 12 },
-                                    "0",
-                                ),
-                            })),
+                            condition: PExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 0.0,
+                                    token: Token::new(
+                                        TokenType::Literal,
+                                        TokenLocation { row: 4, column: 12 },
+                                        "0",
+                                    ),
+                                },
+                            )),
                             body: Box::new(PStatement::Block { statements: vec![] }),
                         }],
                         else_body: Some(Box::new(PStatement::Block {
@@ -189,26 +195,30 @@ y
                                 ),
                             })),
                             body: Box::new(PStatement::Expression {
-                                expression: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                    value: 1.0,
-                                    token: Token::new(
-                                        TokenType::Literal,
-                                        TokenLocation { row: 1, column: 11 },
-                                        "1",
-                                    ),
-                                })),
+                                expression: PExpression::Atom(PAtom::Literal(
+                                    PLiteralPrimitive::Number {
+                                        value: 1.0,
+                                        token: Token::new(
+                                            TokenType::Literal,
+                                            TokenLocation { row: 1, column: 11 },
+                                            "1",
+                                        ),
+                                    },
+                                )),
                             }),
                         },
                         else_if_statements: vec![],
                         else_body: Some(Box::new(PStatement::Expression {
-                            expression: PExpression::Atom(PAtom::Literal(PLiteral::Number {
-                                value: 0.0,
-                                token: Token::new(
-                                    TokenType::Literal,
-                                    TokenLocation { row: 1, column: 18 },
-                                    "0",
-                                ),
-                            })),
+                            expression: PExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 0.0,
+                                    token: Token::new(
+                                        TokenType::Literal,
+                                        TokenLocation { row: 1, column: 18 },
+                                        "0",
+                                    ),
+                                },
+                            )),
                         })),
                     },
                 }],
