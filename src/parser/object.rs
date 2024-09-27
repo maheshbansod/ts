@@ -14,9 +14,15 @@ impl<'a> Parser<'a> {
     fn object_entries(&mut self) -> ParseResult<'a, Vec<PObjectEntry<'a>>> {
         let mut object_entries = vec![];
         loop {
-            let key_value = self.key_value()?;
-            let key_value = PObjectEntry::KeyValue(key_value);
-            object_entries.push(key_value);
+            if self.expect_token(TokenType::Destructure).is_ok() {
+                let expression = self.parse_expression()?;
+                let expression = PObjectEntry::Destructure(expression);
+                object_entries.push(expression)
+            } else {
+                let key_value = self.key_value()?;
+                let key_value = PObjectEntry::KeyValue(key_value);
+                object_entries.push(key_value);
+            }
             if self.expect_token(TokenType::Comma).is_err()
                 || self.is_next_token(TokenType::BraceClose)
             {
@@ -207,6 +213,46 @@ let code = {
                                 ),
                             })),
                         })],
+                    }))),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+
+        Ok(())
+    }
+
+    #[test]
+    fn destructure_identifier<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code(
+            "
+let code = {
+    ...test,
+}
+",
+        )?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Binding {
+                    binding_type: BindingType::Let,
+                    identifier: PIdentifier {
+                        token: Token::new(
+                            TokenType::Identifier,
+                            TokenLocation { row: 2, column: 5 },
+                            "code",
+                        ),
+                    },
+                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
+                        entries: vec![PObjectEntry::Destructure(PExpression::Atom(
+                            PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 3, column: 8 },
+                                    "test",
+                                ),
+                            }),
+                        ))],
                     }))),
                 }],
             },
