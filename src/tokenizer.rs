@@ -8,6 +8,8 @@ pub enum TokenType {
     Colon,
     Comma,
     Const,
+    /// ... operator
+    Destructure,
     Else,
     Function,
     Identifier,
@@ -185,15 +187,13 @@ impl<'a> Tokenizer<'a> {
         let mut it_clone = self.char_indices.clone();
         match it_clone.next() {
             Some((first, 'c')) => {
-                self.consume_rest_keyword(it_clone, first, "onst", TokenType::Const)
+                self.merge_rest_in_token(it_clone, first, "onst", TokenType::Const)
             }
-            Some((first, 'e')) => {
-                self.consume_rest_keyword(it_clone, first, "lse", TokenType::Else)
-            }
+            Some((first, 'e')) => self.merge_rest_in_token(it_clone, first, "lse", TokenType::Else),
             Some((first, 'f')) => {
-                self.consume_rest_keyword(it_clone, first, "unction", TokenType::Function)
+                self.merge_rest_in_token(it_clone, first, "unction", TokenType::Function)
             }
-            Some((first, 'i')) => self.consume_rest_keyword(it_clone, first, "f", TokenType::If),
+            Some((first, 'i')) => self.merge_rest_in_token(it_clone, first, "f", TokenType::If),
             Some((first, 'l')) => match it_clone.next() {
                 Some((_, 'e')) => match it_clone.next() {
                     Some((last, 't')) => {
@@ -207,7 +207,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn consume_rest_keyword<'b>(
+    fn merge_rest_in_token<'b>(
         &mut self,
         mut it: CharIndices<'a>,
         first_index: usize,
@@ -249,6 +249,9 @@ impl<'a> Tokenizer<'a> {
                 Some(self.match_token(it_clone, TokenType::Semicolon, first, first))
             }
             Some((first, ':')) => Some(self.match_token(it_clone, TokenType::Colon, first, first)),
+            Some((first, '.')) => {
+                self.merge_rest_in_token(it_clone, first, "..", TokenType::Destructure)
+            }
             _ => None,
         }
     }
@@ -693,7 +696,7 @@ x
 
     #[test]
     fn operators() {
-        let code = "+ - ; , :";
+        let code = "+ - ; , : ...";
         let tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(TokenType::Plus, TokenLocation { row: 1, column: 1 }, "+"),
@@ -705,6 +708,11 @@ x
             ),
             Token::new(TokenType::Comma, TokenLocation { row: 1, column: 7 }, ","),
             Token::new(TokenType::Colon, TokenLocation { row: 1, column: 9 }, ":"),
+            Token::new(
+                TokenType::Destructure,
+                TokenLocation { row: 1, column: 11 },
+                "...",
+            ),
         ];
         assert_eq!(expected_tokens, tokenizer.collect::<Vec<_>>())
     }
