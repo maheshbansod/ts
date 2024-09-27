@@ -23,6 +23,8 @@ pub enum TokenType {
     Semicolon,
     StringLiteralEnd,
     StringLiteralStart,
+    SquareBracketClose,
+    SquareBracketOpen,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -243,6 +245,12 @@ impl<'a> Tokenizer<'a> {
             }
             Some((first, ')')) => {
                 Some(self.match_token(it_clone, TokenType::ParenthesisClose, first, first))
+            }
+            Some((first, '[')) => {
+                Some(self.match_token(it_clone, TokenType::SquareBracketOpen, first, first))
+            }
+            Some((first, ']')) => {
+                Some(self.match_token(it_clone, TokenType::SquareBracketClose, first, first))
             }
             Some((first, ',')) => Some(self.match_token(it_clone, TokenType::Comma, first, first)),
             Some((first, ';')) => {
@@ -696,7 +704,7 @@ x
 
     #[test]
     fn operators() {
-        let code = "+ - ; , : ...";
+        let code = "+ - ; , : ... [ ]";
         let tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(TokenType::Plus, TokenLocation { row: 1, column: 1 }, "+"),
@@ -712,6 +720,16 @@ x
                 TokenType::Destructure,
                 TokenLocation { row: 1, column: 11 },
                 "...",
+            ),
+            Token::new(
+                TokenType::SquareBracketOpen,
+                TokenLocation { row: 1, column: 15 },
+                "[",
+            ),
+            Token::new(
+                TokenType::SquareBracketClose,
+                TokenLocation { row: 1, column: 17 },
+                "]",
             ),
         ];
         assert_eq!(expected_tokens, tokenizer.collect::<Vec<_>>())
