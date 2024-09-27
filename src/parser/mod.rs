@@ -94,6 +94,19 @@ impl<'a> Parser<'a> {
         Ok((statement, errors))
     }
 
+    /// Check if a token is there
+    fn is_next_token(&mut self, token_type: TokenType) -> bool {
+        if let Some(token) = self.tokenizer.peek() {
+            if token.token_type() != &token_type {
+                false
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
+
     /// Check if a token is there and consume
     fn expect_token(&mut self, token_type: TokenType) -> ParseResult<'a, Token<'a>> {
         if let Some(token) = self.tokenizer.peek() {

@@ -17,7 +17,9 @@ impl<'a> Parser<'a> {
             let key_value = self.key_value()?;
             let key_value = PObjectEntry::KeyValue(key_value);
             object_entries.push(key_value);
-            if self.expect_token(TokenType::Comma).is_err() {
+            if self.expect_token(TokenType::Comma).is_err()
+                || self.is_next_token(TokenType::BraceClose)
+            {
                 break;
             }
         }
@@ -157,6 +159,54 @@ let code = {
                                 )),
                             }),
                         ],
+                    }))),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+
+        Ok(())
+    }
+
+    #[test]
+    fn comma_after_last_entry<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code(
+            "
+let code = {
+    a: 1,
+}
+",
+        )?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Binding {
+                    binding_type: BindingType::Let,
+                    identifier: PIdentifier {
+                        token: Token::new(
+                            TokenType::Identifier,
+                            TokenLocation { row: 2, column: 5 },
+                            "code",
+                        ),
+                    },
+                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
+                        entries: vec![PObjectEntry::KeyValue(PKeyValue {
+                            key: PObjectKey::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 3, column: 5 },
+                                    "a",
+                                ),
+                            }),
+                            value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
+                                value: 1.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 3, column: 8 },
+                                    "1",
+                                ),
+                            })),
+                        })],
                     }))),
                 }],
             },
