@@ -1,6 +1,6 @@
-use crate::tokenizer::{Token, TokenType};
+use crate::tokenizer::TokenType;
 
-use super::{PAtom, PExpression, PIdentifier, PLiteralPrimitive, ParseResult, Parser, ParserError};
+use super::{PAtom, PExpression, PIdentifier, ParseResult, Parser, ParserError};
 
 impl<'a> Parser<'a> {
     pub(super) fn parse_expression(&mut self) -> ParseResult<'a, PExpression<'a>> {
