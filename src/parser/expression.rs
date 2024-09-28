@@ -13,14 +13,13 @@ impl<'a> Parser<'a> {
     ) -> ParseResult<'a, PExpression<'a>> {
         let token = self.tokenizer.peek().ok_or(ParserError::UnexpectedEof)?;
         let mut lhs = if is_token_prefix_operator(token.token_type()) {
-            let token_type = token.token_type();
-            if let Some(((), bp)) = prefix_binding_power(token_type) {
-                let token = self.tokenizer.next().unwrap();
-                let operator = self.token_as_operator(token).unwrap();
+            let token_type = token.token_type().clone();
+            let token = self.tokenizer.next().unwrap();
+            if let Some(((), bp)) = prefix_binding_power(&token_type) {
+                let operator = Parser::token_as_operator(token).unwrap();
                 let rhs = self.parse_expression_pratt(bp)?;
                 PExpression::Cons(operator, vec![rhs])
             } else {
-                let token = self.tokenizer.next().unwrap();
                 return Err(ParserError::UnexpectedToken(token));
             }
         } else if let (Some(atom), _errors) = self.try_parse_atom()? {
@@ -42,9 +41,8 @@ impl<'a> Parser<'a> {
                     break;
                 }
                 let token = self.tokenizer.next().expect("Already peeked ");
-                let operator = self
-                    .token_as_operator(token)
-                    .expect("Already peeked and checked");
+                let operator =
+                    Parser::token_as_operator(token).expect("Already peeked and checked");
                 let rhs = self.parse_expression_pratt(r_bp)?;
                 lhs = PExpression::Cons(operator, vec![lhs, rhs]);
 
@@ -82,13 +80,13 @@ impl<'a> Parser<'a> {
     }
 }
 
-fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
+const fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
     match token_type {
         TokenType::Plus => Some((1, 2)),
         _ => None,
     }
 }
-fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
+const fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
     match token_type {
         TokenType::Minus => Some(((), 6)),
         TokenType::Plus => Some(((), 4)),
@@ -96,7 +94,7 @@ fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
     }
 }
 
-fn is_token_prefix_operator(token_type: &TokenType) -> bool {
+const fn is_token_prefix_operator(token_type: &TokenType) -> bool {
     matches!(token_type, TokenType::Plus | TokenType::Minus)
 }
 

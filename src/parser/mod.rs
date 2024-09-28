@@ -96,23 +96,23 @@ impl<'a> Parser<'a> {
     }
 
     /// Check if a token is there
-    fn is_next_token(&mut self, token_type: TokenType) -> bool {
+    fn is_next_token(&mut self, token_type: &TokenType) -> bool {
         self.tokenizer
             .peek()
-            .is_some_and(|token| token.token_type() == &token_type)
+            .is_some_and(|token| token.token_type() == token_type)
     }
 
     /// Check if a token is there and consume
     fn expect_token(&mut self, token_type: TokenType) -> ParseResult<'a, Token<'a>> {
         if let Some(token) = self.tokenizer.peek() {
-            if token.token_type() != &token_type {
+            if token.token_type() == &token_type {
+                let token = self.tokenizer.next().expect("We peeked in the above if");
+                Ok(token)
+            } else {
                 Err(ParserError::ExpectedToken {
                     expected: token_type,
                     got: token.clone(),
                 })
-            } else {
-                let token = self.tokenizer.next().expect("We peeked in the above if");
-                Ok(token)
             }
         } else {
             Err(ParserError::UnexpectedEof)
@@ -129,7 +129,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn token_as_operator(&self, token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
+    const fn token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
             TokenType::Plus => Ok(POperator::BinaryAdd(token)),
             TokenType::Minus => Ok(POperator::Minus(token)),
@@ -294,7 +294,8 @@ enum BindingType {
     Const,
 }
 
-#[derive(Debug, PartialEq)]
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ParserError<'a> {
     ExpectedLiteral,
     ExpectedToken { expected: TokenType, got: Token<'a> },
@@ -360,11 +361,10 @@ impl<'a> Display for PIdentifier<'a> {
 
 impl<'a> Display for PFunction<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let fname = if let Some(i) = &self.identifier {
-            i.token.lexeme()
-        } else {
-            "<anon>"
-        };
+        let fname = self
+            .identifier
+            .as_ref()
+            .map_or("<anon>", |i| i.token.lexeme());
         write!(f, "function({fname})")?;
         for statement in &self.body {
             write!(f, "{statement}")?;
@@ -407,7 +407,7 @@ impl<'a> Display for ParserError<'a> {
             ParserError::ExpectedToken { expected, got } => {
                 write!(f, "Expected token type {expected:?}, got {got:?}")
             }
-            _ => todo!(),
+            ParserError::ExpectedLiteral => todo!(),
         }
     }
 }

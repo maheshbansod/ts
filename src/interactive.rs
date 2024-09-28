@@ -1,11 +1,10 @@
+//! Interactive mode
 use std::{
     error::Error,
     io::{stdin, stdout, Write},
 };
 
 use crate::{parser::Parser, tokenizer::Tokenizer};
-
-/// Interactive mode
 
 pub fn interactive() -> Result<(), Box<dyn Error>> {
     loop {

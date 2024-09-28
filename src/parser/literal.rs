@@ -19,15 +19,15 @@ impl<'a> Parser<'a> {
                 }?;
 
                 let end_token = if end_token.is_none() {
-                    if let Some(next) = self.tokenizer.next() {
-                        if next.token_type() == &TokenType::StringLiteralEnd {
-                            Ok(next)
-                        } else {
-                            Err(ParserError::UnexpectedToken(next))
-                        }
-                    } else {
-                        Err(ParserError::UnexpectedEof)
-                    }
+                    self.tokenizer
+                        .next()
+                        .map_or(Err(ParserError::UnexpectedEof), |next| {
+                            if next.token_type() == &TokenType::StringLiteralEnd {
+                                Ok(next)
+                            } else {
+                                Err(ParserError::UnexpectedToken(next))
+                            }
+                        })
                 } else {
                     Ok(end_token.unwrap())
                 }?;

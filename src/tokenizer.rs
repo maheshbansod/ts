@@ -31,27 +31,28 @@ pub enum TokenType {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token<'a> {
+    #[allow(clippy::struct_field_names)]
     token_type: TokenType,
     lexeme: &'a str,
     location: TokenLocation,
 }
 
 impl<'a> Token<'a> {
-    pub fn new(token_type: TokenType, location: TokenLocation, lexeme: &'a str) -> Self {
+    pub const fn new(token_type: TokenType, location: TokenLocation, lexeme: &'a str) -> Self {
         Token {
             token_type,
             lexeme,
             location,
         }
     }
-    pub fn token_type(&self) -> &TokenType {
+    pub const fn token_type(&self) -> &TokenType {
         &self.token_type
     }
-    pub fn lexeme(&self) -> &'a str {
+    pub const fn lexeme(&self) -> &'a str {
         self.lexeme
     }
 
-    pub fn location(&self) -> &TokenLocation {
+    pub const fn location(&self) -> &TokenLocation {
         &self.location
     }
 }
@@ -332,11 +333,11 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-fn is_quote(c: char) -> bool {
+const fn is_quote(c: char) -> bool {
     c == '\'' || c == '"'
 }
 
-fn quote_as_delimeter(c: char) -> Option<Delimeter> {
+const fn quote_as_delimeter(c: char) -> Option<Delimeter> {
     match c {
         '\'' => Some(Delimeter::SingleQuote),
         '"' => Some(Delimeter::DoubleQuotes),

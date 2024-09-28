@@ -24,7 +24,7 @@ impl<'a> Parser<'a> {
                 object_entries.push(key_value);
             }
             if self.expect_token(TokenType::Comma).is_err()
-                || self.is_next_token(TokenType::BraceClose)
+                || self.is_next_token(&TokenType::BraceClose)
             {
                 break;
             }
