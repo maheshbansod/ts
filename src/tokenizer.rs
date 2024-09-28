@@ -25,6 +25,8 @@ pub enum TokenType {
     StringLiteralStart,
     SquareBracketClose,
     SquareBracketOpen,
+    /// Marker for an unknown token
+    Unknown,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -279,6 +281,13 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    fn try_consume_unknown(&mut self) -> Option<Token<'a>> {
+        let mut it_clone = self.char_indices.clone();
+        it_clone
+            .next()
+            .map(|(i, _c)| self.match_token(it_clone, TokenType::Unknown, i, i))
+    }
+
     fn try_consume_literal(&mut self) -> Option<Token<'a>> {
         let mut it_clone = self.char_indices.clone();
         match it_clone.next() {
@@ -344,8 +353,9 @@ impl<'a> Iterator for Tokenizer<'a> {
                 self.consume_whitespace();
                 self.try_consume_keyword()
                     .or_else(|| self.try_consume_operator())
-                    .or_else(|| self.try_consume_identifier())
                     .or_else(|| self.try_consume_literal())
+                    .or_else(|| self.try_consume_identifier())
+                    .or_else(|| self.try_consume_unknown())
             }
             TokenizationMode::String { delimeter } => self.consume_string(delimeter),
         }
