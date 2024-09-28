@@ -128,15 +128,6 @@ impl<'a> Parser<'a> {
             }
         }
     }
-
-    const fn token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
-        match token.token_type() {
-            TokenType::Plus => Ok(POperator::BinaryAdd(token)),
-            TokenType::Minus => Ok(POperator::Minus(token)),
-            TokenType::Star => Ok(POperator::Multiply(token)),
-            _ => Err(ParserError::UnexpectedToken(token)),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -154,6 +145,7 @@ enum POperator<'a> {
     BinaryAdd(Token<'a>),
     Minus(Token<'a>),
     Multiply(Token<'a>),
+    Subtract(Token<'a>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -388,6 +380,7 @@ impl<'a> Display for POperator<'a> {
             POperator::BinaryAdd(_) => write!(f, "+"),
             POperator::Minus(_) => write!(f, "-"),
             POperator::Multiply(_) => write!(f, "*"),
+            POperator::Subtract(_) => write!(f, "-"),
         }
     }
 }

@@ -1,6 +1,6 @@
-use crate::tokenizer::TokenType;
+use crate::tokenizer::{Token, TokenType};
 
-use super::{PAtom, PExpression, PIdentifier, ParseResult, Parser, ParserError};
+use super::{PAtom, PExpression, PIdentifier, POperator, ParseResult, Parser, ParserError};
 
 impl<'a> Parser<'a> {
     pub(super) fn parse_expression(&mut self) -> ParseResult<'a, PExpression<'a>> {
@@ -16,7 +16,7 @@ impl<'a> Parser<'a> {
             let token_type = token.token_type().clone();
             let token = self.tokenizer.next().unwrap();
             if let Some(((), bp)) = prefix_binding_power(&token_type) {
-                let operator = Parser::token_as_operator(token).unwrap();
+                let operator = Parser::prefix_token_as_operator(token).unwrap();
                 let rhs = self.parse_expression_pratt(bp)?;
                 PExpression::Cons(operator, vec![rhs])
             } else {
@@ -42,7 +42,7 @@ impl<'a> Parser<'a> {
                 }
                 let token = self.tokenizer.next().expect("Already peeked ");
                 let operator =
-                    Parser::token_as_operator(token).expect("Already peeked and checked");
+                    Parser::infix_token_as_operator(token).expect("Already peeked and checked");
                 let rhs = self.parse_expression_pratt(r_bp)?;
                 lhs = PExpression::Cons(operator, vec![lhs, rhs]);
 
@@ -78,11 +78,28 @@ impl<'a> Parser<'a> {
             Err(ParserError::UnexpectedEof)
         }
     }
+
+    const fn prefix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
+        match token.token_type() {
+            TokenType::Minus => Ok(POperator::Minus(token)),
+            _ => Err(ParserError::UnexpectedToken(token)),
+        }
+    }
+
+    const fn infix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
+        match token.token_type() {
+            TokenType::Plus => Ok(POperator::BinaryAdd(token)),
+            TokenType::Minus => Ok(POperator::Subtract(token)),
+            TokenType::Star => Ok(POperator::Multiply(token)),
+            _ => Err(ParserError::UnexpectedToken(token)),
+        }
+    }
 }
 
 const fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
     match token_type {
         TokenType::Plus => Some((1, 2)),
+        TokenType::Minus => Some((1, 2)),
         TokenType::Star => Some((5, 6)),
         _ => None,
     }
@@ -240,6 +257,45 @@ mod tests {
             },
         };
         assert_eq!(expected_tree, tree);
+    }
+
+    #[test]
+    fn subtraction<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("3 - 2")?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Cons(
+                        POperator::Subtract(Token::new(
+                            TokenType::Minus,
+                            TokenLocation { row: 1, column: 3 },
+                            "-",
+                        )),
+                        vec![
+                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
+                                value: 3.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 1, column: 1 },
+                                    "3",
+                                ),
+                            })),
+                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
+                                value: 2.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 1, column: 5 },
+                                    "2",
+                                ),
+                            })),
+                        ],
+                    ),
+                }],
+            },
+        };
+        assert_eq!(tree, expected_tree);
+        Ok(())
     }
 
     #[test]
