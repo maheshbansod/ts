@@ -280,4 +280,57 @@ mod tests {
         assert_eq!(tree, expected_tree);
         Ok(())
     }
+
+    #[test]
+    fn add_associativity<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("a + b + c")?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Cons(
+                        POperator::BinaryAdd(Token::new(
+                            TokenType::Plus,
+                            TokenLocation { row: 1, column: 7 },
+                            "+",
+                        )),
+                        vec![
+                            PExpression::Cons(
+                                POperator::BinaryAdd(Token::new(
+                                    TokenType::Plus,
+                                    TokenLocation { row: 1, column: 3 },
+                                    "+",
+                                )),
+                                vec![
+                                    PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                        token: Token::new(
+                                            TokenType::Identifier,
+                                            TokenLocation { row: 1, column: 1 },
+                                            "a",
+                                        ),
+                                    })),
+                                    PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                        token: Token::new(
+                                            TokenType::Identifier,
+                                            TokenLocation { row: 1, column: 5 },
+                                            "b",
+                                        ),
+                                    })),
+                                ],
+                            ),
+                            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 1, column: 9 },
+                                    "c",
+                                ),
+                            })),
+                        ],
+                    ),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+        Ok(())
+    }
 }
