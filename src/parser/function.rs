@@ -44,8 +44,8 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            BindingType, PAtom, PExpression, PFunction, PIdentifier, PLiteralPrimitive, POperator,
-            PStatement, ParseTree, ParseTreeRoot, Parser,
+            expression::POperator, BindingType, PAtom, PExpression, PFunction, PIdentifier,
+            PLiteralPrimitive, PStatement, ParseTree, ParseTreeRoot, Parser,
         },
         tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
     };

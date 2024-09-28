@@ -1,6 +1,53 @@
+use std::fmt::Display;
+
 use crate::tokenizer::{Token, TokenType};
 
-use super::{PAtom, PExpression, PIdentifier, POperator, ParseResult, Parser, ParserError};
+use super::{PAtom, PIdentifier, ParseResult, Parser, ParserError};
+
+#[derive(Debug, PartialEq)]
+pub(super) enum POperator<'a> {
+    BinaryAdd(Token<'a>),
+    Negate(Token<'a>),
+    Multiply(Token<'a>),
+    Subtract(Token<'a>),
+}
+
+#[derive(Debug, PartialEq)]
+pub(super) enum PExpression<'a> {
+    Atom(PAtom<'a>),
+    Cons(POperator<'a>, Vec<PExpression<'a>>),
+}
+
+impl<'a> Display for PExpression<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PExpression::Atom(atom) => match atom {
+                PAtom::Literal(literal) => write!(f, "{literal}"),
+                PAtom::ObjectLiteral(object) => write!(f, "{{{object}}}"),
+                PAtom::Identifier(identifier) => write!(f, "{identifier}"),
+                PAtom::Function(function) => write!(f, "{function}"),
+            },
+            PExpression::Cons(operator, rest) => {
+                write!(f, "{operator} (")?;
+                for expr in rest {
+                    write!(f, "{expr} ")?;
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
+
+impl<'a> Display for POperator<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            POperator::BinaryAdd(_) => write!(f, "+"),
+            POperator::Negate(_) => write!(f, "-"),
+            POperator::Multiply(_) => write!(f, "*"),
+            POperator::Subtract(_) => write!(f, "-"),
+        }
+    }
+}
 
 impl<'a> Parser<'a> {
     pub(super) fn parse_expression(&mut self) -> ParseResult<'a, PExpression<'a>> {
@@ -120,8 +167,9 @@ const fn is_token_prefix_operator(token_type: &TokenType) -> bool {
 mod tests {
     use crate::{
         parser::{
-            parse_code, PAtom, PExpression, PIdentifier, PLiteralPrimitive, POperator, PStatement,
-            ParseResult, ParseTree, ParseTreeRoot, Parser,
+            expression::{PExpression, POperator},
+            parse_code, PAtom, PIdentifier, PLiteralPrimitive, PStatement, ParseResult, ParseTree,
+            ParseTreeRoot, Parser,
         },
         tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
     };

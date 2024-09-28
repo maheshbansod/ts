@@ -141,14 +141,6 @@ struct ParseTreeRoot<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-enum POperator<'a> {
-    BinaryAdd(Token<'a>),
-    Negate(Token<'a>),
-    Multiply(Token<'a>),
-    Subtract(Token<'a>),
-}
-
-#[derive(Debug, PartialEq)]
 enum PStatement<'a> {
     Binding {
         binding_type: BindingType,
@@ -164,12 +156,6 @@ enum PStatement<'a> {
     If {
         statement: PIfElseStatement<'a>,
     },
-}
-
-#[derive(Debug, PartialEq)]
-enum PExpression<'a> {
-    Atom(PAtom<'a>),
-    Cons(POperator<'a>, Vec<PExpression<'a>>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -196,6 +182,8 @@ enum PLiteralPrimitive<'a> {
 
 #[cfg(test)]
 use crate::tokenizer::TokenLocation;
+
+use self::expression::PExpression;
 
 #[cfg(test)]
 impl<'a> PLiteralPrimitive<'a> {
@@ -299,26 +287,6 @@ pub enum ParserError<'a> {
 
 impl Error for ParserError<'_> {}
 
-impl<'a> Display for PExpression<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PExpression::Atom(atom) => match atom {
-                PAtom::Literal(literal) => write!(f, "{literal}"),
-                PAtom::ObjectLiteral(object) => write!(f, "{{{object}}}"),
-                PAtom::Identifier(identifier) => write!(f, "{identifier}"),
-                PAtom::Function(function) => write!(f, "{function}"),
-            },
-            PExpression::Cons(operator, rest) => {
-                write!(f, "{operator} (")?;
-                for expr in rest {
-                    write!(f, "{expr} ")?;
-                }
-                write!(f, ")")
-            }
-        }
-    }
-}
-
 impl<'a> Display for PLiteralPrimitive<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -374,17 +342,6 @@ impl<'a> Display for PStatement<'a> {
     }
 }
 
-impl<'a> Display for POperator<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            POperator::BinaryAdd(_) => write!(f, "+"),
-            POperator::Negate(_) => write!(f, "-"),
-            POperator::Multiply(_) => write!(f, "*"),
-            POperator::Subtract(_) => write!(f, "-"),
-        }
-    }
-}
-
 impl<'a> Display for ParserError<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -430,7 +387,10 @@ fn parse_code(code: &str) -> ParseResult<'_, (ParseTree<'_>, Vec<ParserError<'_>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tokenizer::{Token, TokenLocation, TokenType, Tokenizer};
+    use crate::{
+        parser::expression::POperator,
+        tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
+    };
     use pretty_assertions::assert_eq;
 
     #[test]
