@@ -83,6 +83,7 @@ impl<'a> Parser<'a> {
 const fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
     match token_type {
         TokenType::Plus => Some((1, 2)),
+        TokenType::Star => Some((5, 6)),
         _ => None,
     }
 }
@@ -102,11 +103,12 @@ const fn is_token_prefix_operator(token_type: &TokenType) -> bool {
 mod tests {
     use crate::{
         parser::{
-            PAtom, PExpression, PIdentifier, PLiteralPrimitive, POperator, PStatement, ParseTree,
-            ParseTreeRoot, Parser,
+            parse_code, PAtom, PExpression, PIdentifier, PLiteralPrimitive, POperator, PStatement,
+            ParseResult, ParseTree, ParseTreeRoot, Parser,
         },
         tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
     };
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn it_should_parse_exp_atom() {
@@ -238,5 +240,44 @@ mod tests {
             },
         };
         assert_eq!(expected_tree, tree);
+    }
+
+    #[test]
+    fn multiplication<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("3 * 2")?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Cons(
+                        POperator::Multiply(Token::new(
+                            TokenType::Star,
+                            TokenLocation { row: 1, column: 3 },
+                            "*",
+                        )),
+                        vec![
+                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
+                                value: 3.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 1, column: 1 },
+                                    "3",
+                                ),
+                            })),
+                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
+                                value: 2.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 1, column: 5 },
+                                    "2",
+                                ),
+                            })),
+                        ],
+                    ),
+                }],
+            },
+        };
+        assert_eq!(tree, expected_tree);
+        Ok(())
     }
 }

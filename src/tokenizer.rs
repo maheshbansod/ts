@@ -21,6 +21,7 @@ pub enum TokenType {
     ParenthesisOpen,
     Plus,
     Semicolon,
+    Star,
     StringLiteralEnd,
     StringLiteralStart,
     SquareBracketClose,
@@ -235,6 +236,7 @@ impl<'a> Tokenizer<'a> {
         let mut it_clone = self.char_indices.clone();
         match it_clone.next() {
             Some((first, '+')) => Some(self.match_token(it_clone, TokenType::Plus, first, first)),
+            Some((first, '*')) => Some(self.match_token(it_clone, TokenType::Star, first, first)),
             Some((first, '-')) => Some(self.match_token(it_clone, TokenType::Minus, first, first)),
             Some((first, '=')) => Some(self.match_token(it_clone, TokenType::Assign, first, first)),
             Some((first, '{')) => {

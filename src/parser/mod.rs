@@ -133,6 +133,7 @@ impl<'a> Parser<'a> {
         match token.token_type() {
             TokenType::Plus => Ok(POperator::BinaryAdd(token)),
             TokenType::Minus => Ok(POperator::Minus(token)),
+            TokenType::Star => Ok(POperator::Multiply(token)),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
@@ -152,6 +153,7 @@ struct ParseTreeRoot<'a> {
 enum POperator<'a> {
     BinaryAdd(Token<'a>),
     Minus(Token<'a>),
+    Multiply(Token<'a>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -385,6 +387,7 @@ impl<'a> Display for POperator<'a> {
         match self {
             POperator::BinaryAdd(_) => write!(f, "+"),
             POperator::Minus(_) => write!(f, "-"),
+            POperator::Multiply(_) => write!(f, "*"),
         }
     }
 }
