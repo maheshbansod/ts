@@ -56,78 +56,28 @@ impl<'a> Parser<'a> {
     }
 
     fn try_parse_atom(&mut self) -> ParseResult<'a, (Option<PAtom<'a>>, Vec<ParserError<'a>>)> {
-        let token = self.tokenizer.peek();
-        if token.is_none() {
-            return Ok((None, vec![ParserError::UnexpectedEof]));
-        }
-        let token = token.unwrap();
-        match token.token_type() {
-            TokenType::Literal => {
-                let token = self.tokenizer.next().unwrap();
-                if let Ok(n) = token.lexeme().parse::<f32>() {
-                    Ok((
-                        Some(PAtom::Literal(PLiteralPrimitive::Number {
-                            value: n,
-                            token,
-                        })),
-                        vec![],
-                    ))
-                } else {
-                    Err(ParserError::UnexpectedToken(token))
+        if let Ok(literal) = self.expect_literal_primitive() {
+            Ok((Some(PAtom::Literal(literal)), vec![]))
+        } else if let Some(token) = self.tokenizer.peek() {
+            match token.token_type() {
+                TokenType::Function => {
+                    self.tokenizer.next();
+                    let (function, errors) = self.parse_function()?;
+                    Ok((Some(PAtom::Function(function)), errors))
                 }
-            }
-            TokenType::StringLiteralStart => {
-                let token = self.tokenizer.next().unwrap();
-                let start_token = token;
-                if let Some(next) = self.tokenizer.next() {
-                    let (value, value_token, end_token) = match next.token_type() {
-                        TokenType::Literal => Ok((next.lexeme(), Some(next), None)),
-                        TokenType::StringLiteralEnd => Ok(("", None, Some(next))),
-                        _ => Err(ParserError::UnexpectedToken(next)),
-                    }?;
-
-                    let end_token = if end_token.is_none() {
-                        if let Some(next) = self.tokenizer.next() {
-                            if next.token_type() == &TokenType::StringLiteralEnd {
-                                Ok(next)
-                            } else {
-                                Err(ParserError::UnexpectedToken(next))
-                            }
-                        } else {
-                            Err(ParserError::UnexpectedEof)
-                        }
-                    } else {
-                        Ok(end_token.unwrap())
-                    }?;
-
-                    Ok((
-                        Some(PAtom::Literal(PLiteralPrimitive::String {
-                            start_delim: start_token,
-                            end_delim: end_token,
-                            value,
-                            value_token,
-                        })),
-                        vec![],
-                    ))
-                } else {
-                    Err(ParserError::UnexpectedEof)
+                TokenType::Identifier => {
+                    let token = self.tokenizer.next().unwrap();
+                    Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![]))
                 }
+                TokenType::BraceOpen => {
+                    self.tokenizer.next();
+                    let object = self.parse_object()?;
+                    Ok((Some(PAtom::ObjectLiteral(object)), vec![]))
+                }
+                _ => Ok((None, vec![])),
             }
-            TokenType::Function => {
-                self.tokenizer.next();
-                let (function, errors) = self.parse_function()?;
-                Ok((Some(PAtom::Function(function)), errors))
-            }
-            TokenType::Identifier => {
-                let token = self.tokenizer.next().unwrap();
-                Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![]))
-            }
-            TokenType::BraceOpen => {
-                self.tokenizer.next();
-                let object = self.parse_object()?;
-                Ok((Some(PAtom::ObjectLiteral(object)), vec![]))
-            }
-            _ => Ok((None, vec![])),
+        } else {
+            Err(ParserError::UnexpectedEof)
         }
     }
 }

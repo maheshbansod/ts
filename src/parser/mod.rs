@@ -3,11 +3,12 @@ mod expression;
 mod function;
 mod identifier;
 mod if_else;
+mod literal;
 mod object;
 
 use std::{error::Error, fmt::Display, iter::Peekable};
 
-use crate::tokenizer::{Token, TokenType, Tokenizer};
+use crate::tokenizer::{Token, TokenLocation, TokenType, Tokenizer};
 
 pub struct Parser<'a> {
     tokenizer: Peekable<Tokenizer<'a>>,
@@ -208,6 +209,39 @@ enum PLiteralPrimitive<'a> {
     // },
 }
 
+impl<'a> PLiteralPrimitive<'a> {
+    fn string(s: &'a str, row: usize, column: usize, delim: &'a str) -> Self {
+        let start_delim = Token::new(
+            TokenType::StringLiteralStart,
+            TokenLocation { row, column },
+            delim,
+        );
+        let value_token = Some(Token::new(
+            TokenType::Literal,
+            TokenLocation {
+                row,
+                column: column + 1,
+            },
+            s,
+        ));
+        let end_delim = Token::new(
+            TokenType::StringLiteralEnd,
+            TokenLocation {
+                row,
+                column: column + s.len() + 1,
+            },
+            delim,
+        );
+        let value = s;
+        Self::String {
+            value_token,
+            value,
+            start_delim,
+            end_delim,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 struct PObject<'a> {
     entries: Vec<PObjectEntry<'a>>,
@@ -267,9 +301,10 @@ enum BindingType {
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError<'a> {
+    ExpectedLiteral,
+    ExpectedToken { expected: TokenType, got: Token<'a> },
     UnexpectedEof,
     UnexpectedToken(Token<'a>),
-    ExpectedToken { expected: TokenType, got: Token<'a> },
 }
 
 impl Error for ParserError<'_> {}
@@ -377,6 +412,7 @@ impl<'a> Display for ParserError<'a> {
             ParserError::ExpectedToken { expected, got } => {
                 write!(f, "Expected token type {expected:?}, got {got:?}")
             }
+            _ => todo!(),
         }
     }
 }
@@ -499,58 +535,6 @@ let z = x + y;
 
         assert_eq!(errors, vec![]);
         assert_eq!(tree, expected_tree);
-    }
-
-    #[test]
-    fn it_should_parse_string_atom() {
-        let code = "'1'";
-        let tokenizer = Tokenizer::new(code);
-        let mut parser = Parser::new(tokenizer);
-        assert_eq!(
-            parser.parse_expression().expect("should parse"),
-            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::String {
-                value: "1",
-                start_delim: Token::new(
-                    TokenType::StringLiteralStart,
-                    TokenLocation { row: 1, column: 1 },
-                    "'"
-                ),
-                value_token: Some(Token::new(
-                    TokenType::Literal,
-                    TokenLocation { row: 1, column: 2 },
-                    "1"
-                )),
-                end_delim: Token::new(
-                    TokenType::StringLiteralEnd,
-                    TokenLocation { row: 1, column: 3 },
-                    "'"
-                ),
-            }))
-        );
-    }
-
-    #[test]
-    fn it_should_parse_empty_string_atom() {
-        let code = "''";
-        let tokenizer = Tokenizer::new(code);
-        let mut parser = Parser::new(tokenizer);
-        assert_eq!(
-            parser.parse_expression().expect("should parse"),
-            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::String {
-                value: "",
-                start_delim: Token::new(
-                    TokenType::StringLiteralStart,
-                    TokenLocation { row: 1, column: 1 },
-                    "'"
-                ),
-                value_token: None,
-                end_delim: Token::new(
-                    TokenType::StringLiteralEnd,
-                    TokenLocation { row: 1, column: 2 },
-                    "'"
-                ),
-            }))
-        );
     }
 
     #[test]
