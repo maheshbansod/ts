@@ -143,7 +143,7 @@ struct ParseTreeRoot<'a> {
 #[derive(Debug, PartialEq)]
 enum POperator<'a> {
     BinaryAdd(Token<'a>),
-    Minus(Token<'a>),
+    Negate(Token<'a>),
     Multiply(Token<'a>),
     Subtract(Token<'a>),
 }
@@ -378,7 +378,7 @@ impl<'a> Display for POperator<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             POperator::BinaryAdd(_) => write!(f, "+"),
-            POperator::Minus(_) => write!(f, "-"),
+            POperator::Negate(_) => write!(f, "-"),
             POperator::Multiply(_) => write!(f, "*"),
             POperator::Subtract(_) => write!(f, "-"),
         }

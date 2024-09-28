@@ -81,7 +81,7 @@ impl<'a> Parser<'a> {
 
     const fn prefix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
-            TokenType::Minus => Ok(POperator::Minus(token)),
+            TokenType::Minus => Ok(POperator::Negate(token)),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
