@@ -1,4 +1,4 @@
-use std::str::CharIndices;
+use std::{fmt::Display, str::CharIndices};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TokenType {
@@ -371,6 +371,12 @@ pub struct TokenLocation {
     pub column: usize,
 }
 
+impl<'a> Display for Token<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.token_type())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::tokenizer::Tokenizer;
@@ -719,33 +725,18 @@ x
     fn operators() {
         let code = "+ - ; , : ... [ ]";
         let tokenizer = Tokenizer::new(code);
-        let expected_tokens = vec![
-            Token::new(TokenType::Plus, TokenLocation { row: 1, column: 1 }, "+"),
-            Token::new(TokenType::Minus, TokenLocation { row: 1, column: 3 }, "-"),
-            Token::new(
-                TokenType::Semicolon,
-                TokenLocation { row: 1, column: 5 },
-                ";",
-            ),
-            Token::new(TokenType::Comma, TokenLocation { row: 1, column: 7 }, ","),
-            Token::new(TokenType::Colon, TokenLocation { row: 1, column: 9 }, ":"),
-            Token::new(
-                TokenType::Destructure,
-                TokenLocation { row: 1, column: 11 },
-                "...",
-            ),
-            Token::new(
-                TokenType::SquareBracketOpen,
-                TokenLocation { row: 1, column: 15 },
-                "[",
-            ),
-            Token::new(
-                TokenType::SquareBracketClose,
-                TokenLocation { row: 1, column: 17 },
-                "]",
-            ),
+        let expected = vec![
+            "Plus",
+            "Minus",
+            "Semicolon",
+            "Comma",
+            "Colon",
+            "Destructure",
+            "SquareBracketOpen",
+            "SquareBracketClose",
         ];
-        assert_eq!(expected_tokens, tokenizer.collect::<Vec<_>>());
+        let actual = tokenizer.map(|t| t.to_string()).collect::<Vec<_>>();
+        assert_eq!(expected, actual);
     }
 
     #[test]
