@@ -8,7 +8,7 @@ mod object;
 
 use std::{error::Error, fmt::Display, iter::Peekable};
 
-use crate::tokenizer::{Token, TokenLocation, TokenType, Tokenizer};
+use crate::tokenizer::{Token, TokenType, Tokenizer};
 
 pub struct Parser<'a> {
     tokenizer: Peekable<Tokenizer<'a>>,
@@ -97,15 +97,9 @@ impl<'a> Parser<'a> {
 
     /// Check if a token is there
     fn is_next_token(&mut self, token_type: TokenType) -> bool {
-        if let Some(token) = self.tokenizer.peek() {
-            if token.token_type() != &token_type {
-                false
-            } else {
-                true
-            }
-        } else {
-            false
-        }
+        self.tokenizer
+            .peek()
+            .is_some_and(|token| token.token_type() == &token_type)
     }
 
     /// Check if a token is there and consume
@@ -204,11 +198,12 @@ enum PLiteralPrimitive<'a> {
         start_delim: Token<'a>,
         end_delim: Token<'a>,
     },
-    // Object {
-    //     entries: Vec<PObjectEntry<'a>>,
-    // },
 }
 
+#[cfg(test)]
+use crate::tokenizer::TokenLocation;
+
+#[cfg(test)]
 impl<'a> PLiteralPrimitive<'a> {
     fn string(s: &'a str, row: usize, column: usize, delim: &'a str) -> Self {
         let start_delim = Token::new(

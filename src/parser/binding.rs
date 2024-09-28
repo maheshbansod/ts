@@ -12,7 +12,7 @@ impl<'a> Parser<'a> {
         self.tokenizer.next();
         let identifier = self.parse_identifier()?;
         let value = {
-            if let Ok(_) = self.expect_token(TokenType::Assign) {
+            if self.expect_token(TokenType::Assign).is_ok() {
                 Some(self.parse_expression()?)
             } else {
                 None
