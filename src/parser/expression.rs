@@ -23,10 +23,7 @@ impl<'a> Parser<'a> {
                 let token = self.tokenizer.next().unwrap();
                 return Err(ParserError::UnexpectedToken(token));
             }
-        } else if let (Some(atom), _errors) = {
-            let token = token.clone();
-            self.try_parse_atom(token)
-        }? {
+        } else if let (Some(atom), _errors) = self.try_parse_atom()? {
             PExpression::Atom(atom)
         } else {
             let token = self.tokenizer.next().unwrap();
@@ -58,14 +55,15 @@ impl<'a> Parser<'a> {
         Ok(lhs)
     }
 
-    fn try_parse_atom(
-        &mut self,
-        first_token: Token<'a>,
-    ) -> ParseResult<'a, (Option<PAtom<'a>>, Vec<ParserError<'a>>)> {
-        let token = first_token;
+    fn try_parse_atom(&mut self) -> ParseResult<'a, (Option<PAtom<'a>>, Vec<ParserError<'a>>)> {
+        let token = self.tokenizer.peek();
+        if token.is_none() {
+            return Ok((None, vec![ParserError::UnexpectedEof]));
+        }
+        let token = token.unwrap();
         match token.token_type() {
             TokenType::Literal => {
-                self.tokenizer.next();
+                let token = self.tokenizer.next().unwrap();
                 if let Ok(n) = token.lexeme().parse::<f32>() {
                     Ok((
                         Some(PAtom::Literal(PLiteralPrimitive::Number {
@@ -79,7 +77,7 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenType::StringLiteralStart => {
-                self.tokenizer.next();
+                let token = self.tokenizer.next().unwrap();
                 let start_token = token;
                 if let Some(next) = self.tokenizer.next() {
                     let (value, value_token, end_token) = match next.token_type() {
@@ -121,7 +119,7 @@ impl<'a> Parser<'a> {
                 Ok((Some(PAtom::Function(function)), errors))
             }
             TokenType::Identifier => {
-                self.tokenizer.next();
+                let token = self.tokenizer.next().unwrap();
                 Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![]))
             }
             TokenType::BraceOpen => {
