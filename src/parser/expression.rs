@@ -11,6 +11,7 @@ pub(super) enum POperator<'a> {
     Multiply(Token<'a>),
     Negate(Token<'a>),
     PostIncrement(Token<'a>),
+    PreIncrement(Token<'a>),
     Subtract(Token<'a>),
 }
 
@@ -45,9 +46,10 @@ impl<'a> Display for POperator<'a> {
         match self {
             POperator::BinaryAdd(_) => write!(f, "+"),
             POperator::Divide(_) => write!(f, "/"),
-            POperator::PostIncrement(_) => write!(f, "++"),
             POperator::Multiply(_) => write!(f, "*"),
             POperator::Negate(_) => write!(f, "-"),
+            POperator::PostIncrement(_) => write!(f, "++"),
+            POperator::PreIncrement(_) => write!(f, "++"),
             POperator::Subtract(_) => write!(f, "-"),
         }
     }
@@ -143,6 +145,7 @@ impl<'a> Parser<'a> {
 
     const fn prefix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
+            TokenType::Increment => Ok(POperator::PreIncrement(token)),
             TokenType::Minus => Ok(POperator::Negate(token)),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
@@ -178,6 +181,7 @@ const fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
 }
 const fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
     match token_type {
+        TokenType::Increment => Some(((), 10)),
         TokenType::Minus => Some(((), 8)),
         TokenType::Plus => Some(((), 8)),
         _ => None,
@@ -191,7 +195,10 @@ const fn postfix_binding_power(token_type: &TokenType) -> Option<(u8, ())> {
 }
 
 const fn is_token_prefix_operator(token_type: &TokenType) -> bool {
-    matches!(token_type, TokenType::Plus | TokenType::Minus)
+    matches!(
+        token_type,
+        TokenType::Increment | TokenType::Minus | TokenType::Plus
+    )
 }
 
 #[cfg(test)]
@@ -507,8 +514,8 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn post_increment<'a>() -> ParseResult<'a, ()> {
-        let (tree, errors) = parse_code("3 + a++ + 2")?;
+    fn increment<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("3 + a++ + ++b")?;
         assert_eq!(errors, vec![]);
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
@@ -551,14 +558,20 @@ mod tests {
                                     ),
                                 ],
                             ),
-                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 2.0,
-                                token: Token::new(
-                                    TokenType::Literal,
+                            PExpression::Cons(
+                                POperator::PreIncrement(Token::new(
+                                    TokenType::Increment,
                                     TokenLocation { row: 1, column: 11 },
-                                    "2",
-                                ),
-                            })),
+                                    "++",
+                                )),
+                                vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                    token: Token::new(
+                                        TokenType::Identifier,
+                                        TokenLocation { row: 1, column: 13 },
+                                        "b",
+                                    ),
+                                }))],
+                            ),
                         ],
                     ),
                 }],
