@@ -9,3 +9,6 @@ edition = "2021"
 pretty_assertions = "1.4.1"
 
 [lints.clippy]
+all = "warn"
+nursery = "warn"
+pedantic = "warn"
