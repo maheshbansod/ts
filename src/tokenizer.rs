@@ -8,12 +8,14 @@ pub enum TokenType {
     Colon,
     Comma,
     Const,
+    Decrement,
     /// ... operator
     Destructure,
     Else,
     Function,
     Identifier,
     If,
+    Increment,
     Let,
     Literal,
     Minus,
@@ -236,10 +238,14 @@ impl<'a> Tokenizer<'a> {
     fn try_consume_operator(&mut self) -> Option<Token<'a>> {
         let mut it_clone = self.char_indices.clone();
         match it_clone.next() {
-            Some((first, '+')) => Some(self.match_token(it_clone, TokenType::Plus, first, first)),
+            Some((first, '+')) => self
+                .merge_rest_in_token(it_clone.clone(), first, "+", TokenType::Increment)
+                .or_else(|| Some(self.match_token(it_clone, TokenType::Plus, first, first))),
             Some((first, '*')) => Some(self.match_token(it_clone, TokenType::Star, first, first)),
             Some((first, '/')) => Some(self.match_token(it_clone, TokenType::Slash, first, first)),
-            Some((first, '-')) => Some(self.match_token(it_clone, TokenType::Minus, first, first)),
+            Some((first, '-')) => self
+                .merge_rest_in_token(it_clone.clone(), first, "-", TokenType::Decrement)
+                .or_else(|| Some(self.match_token(it_clone, TokenType::Minus, first, first))),
             Some((first, '=')) => Some(self.match_token(it_clone, TokenType::Assign, first, first)),
             Some((first, '{')) => {
                 Some(self.match_token(it_clone, TokenType::BraceOpen, first, first))
@@ -725,7 +731,7 @@ x
 
     #[test]
     fn operators() {
-        let code = "+ - * / ; , : ... [ ]";
+        let code = "+ - * / ; , : ... [ ] ++ --";
         let tokenizer = Tokenizer::new(code);
         let expected = vec![
             "Plus",
@@ -738,6 +744,8 @@ x
             "Destructure",
             "SquareBracketOpen",
             "SquareBracketClose",
+            "Increment",
+            "Decrement",
         ];
         let actual = tokenizer.map(|t| t.to_string()).collect::<Vec<_>>();
         assert_eq!(expected, actual);
