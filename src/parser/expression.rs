@@ -8,9 +8,9 @@ use super::{PAtom, PIdentifier, ParseResult, Parser, ParserError};
 pub(super) enum POperator<'a> {
     BinaryAdd(Token<'a>),
     Divide(Token<'a>),
-    PostIncrement, // todo: include tokens or something maybe
     Multiply(Token<'a>),
     Negate(Token<'a>),
+    PostIncrement(Token<'a>),
     Subtract(Token<'a>),
 }
 
@@ -45,7 +45,7 @@ impl<'a> Display for POperator<'a> {
         match self {
             POperator::BinaryAdd(_) => write!(f, "+"),
             POperator::Divide(_) => write!(f, "/"),
-            POperator::PostIncrement => write!(f, "++"),
+            POperator::PostIncrement(_) => write!(f, "++"),
             POperator::Multiply(_) => write!(f, "*"),
             POperator::Negate(_) => write!(f, "-"),
             POperator::Subtract(_) => write!(f, "-"),
@@ -160,7 +160,7 @@ impl<'a> Parser<'a> {
 
     const fn postfix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
-            TokenType::Increment => Ok(POperator::PostIncrement),
+            TokenType::Increment => Ok(POperator::PostIncrement(token)),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
@@ -536,7 +536,11 @@ mod tests {
                                         ),
                                     })),
                                     PExpression::Cons(
-                                        POperator::PostIncrement,
+                                        POperator::PostIncrement(Token::new(
+                                            TokenType::Increment,
+                                            TokenLocation { row: 1, column: 6 },
+                                            "++",
+                                        )),
                                         vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
                                             token: Token::new(
                                                 TokenType::Identifier,
