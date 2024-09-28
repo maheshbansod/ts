@@ -21,6 +21,7 @@ pub enum TokenType {
     ParenthesisOpen,
     Plus,
     Semicolon,
+    Slash,
     Star,
     StringLiteralEnd,
     StringLiteralStart,
@@ -237,6 +238,7 @@ impl<'a> Tokenizer<'a> {
         match it_clone.next() {
             Some((first, '+')) => Some(self.match_token(it_clone, TokenType::Plus, first, first)),
             Some((first, '*')) => Some(self.match_token(it_clone, TokenType::Star, first, first)),
+            Some((first, '/')) => Some(self.match_token(it_clone, TokenType::Slash, first, first)),
             Some((first, '-')) => Some(self.match_token(it_clone, TokenType::Minus, first, first)),
             Some((first, '=')) => Some(self.match_token(it_clone, TokenType::Assign, first, first)),
             Some((first, '{')) => {
@@ -723,11 +725,13 @@ x
 
     #[test]
     fn operators() {
-        let code = "+ - ; , : ... [ ]";
+        let code = "+ - * / ; , : ... [ ]";
         let tokenizer = Tokenizer::new(code);
         let expected = vec![
             "Plus",
             "Minus",
+            "Star",
+            "Slash",
             "Semicolon",
             "Comma",
             "Colon",
