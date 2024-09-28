@@ -8,6 +8,7 @@ use super::{PAtom, PIdentifier, ParseResult, Parser, ParserError};
 pub(super) enum POperator<'a> {
     BinaryAdd(Token<'a>),
     Divide(Token<'a>),
+    PostIncrement, // todo: include tokens or something maybe
     Multiply(Token<'a>),
     Negate(Token<'a>),
     Subtract(Token<'a>),
@@ -44,6 +45,7 @@ impl<'a> Display for POperator<'a> {
         match self {
             POperator::BinaryAdd(_) => write!(f, "+"),
             POperator::Divide(_) => write!(f, "/"),
+            POperator::PostIncrement => write!(f, "++"),
             POperator::Multiply(_) => write!(f, "*"),
             POperator::Negate(_) => write!(f, "-"),
             POperator::Subtract(_) => write!(f, "-"),
@@ -97,6 +99,17 @@ impl<'a> Parser<'a> {
 
                 continue;
             }
+            if let Some((l_bp, ())) = postfix_binding_power(op_token.token_type()) {
+                if l_bp < min_binding_power {
+                    break;
+                }
+                let token = self.tokenizer.next().expect("Already peeked ");
+                let operator =
+                    Parser::postfix_token_as_operator(token).expect("Already peeked and checked");
+                lhs = PExpression::Cons(operator, vec![lhs]);
+
+                continue;
+            }
             break;
         }
         Ok(lhs)
@@ -144,6 +157,13 @@ impl<'a> Parser<'a> {
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
+
+    const fn postfix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
+        match token.token_type() {
+            TokenType::Increment => Ok(POperator::PostIncrement),
+            _ => Err(ParserError::UnexpectedToken(token)),
+        }
+    }
 }
 
 const fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
@@ -158,8 +178,14 @@ const fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
 }
 const fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
     match token_type {
-        TokenType::Minus => Some(((), 6)),
-        TokenType::Plus => Some(((), 4)),
+        TokenType::Minus => Some(((), 8)),
+        TokenType::Plus => Some(((), 8)),
+        _ => None,
+    }
+}
+const fn postfix_binding_power(token_type: &TokenType) -> Option<(u8, ())> {
+    match token_type {
+        TokenType::Increment => Some((10, ())),
         _ => None,
     }
 }
@@ -478,6 +504,63 @@ mod tests {
             },
         };
         assert_eq!(expected_tree, tree);
+        Ok(())
+    }
+    #[test]
+    fn post_increment<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("3 + a++ + 2")?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Cons(
+                        POperator::BinaryAdd(Token::new(
+                            TokenType::Plus,
+                            TokenLocation { row: 1, column: 9 },
+                            "+",
+                        )),
+                        vec![
+                            PExpression::Cons(
+                                POperator::BinaryAdd(Token::new(
+                                    TokenType::Plus,
+                                    TokenLocation { row: 1, column: 3 },
+                                    "+",
+                                )),
+                                vec![
+                                    PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
+                                        value: 3.0,
+                                        token: Token::new(
+                                            TokenType::Literal,
+                                            TokenLocation { row: 1, column: 1 },
+                                            "3",
+                                        ),
+                                    })),
+                                    PExpression::Cons(
+                                        POperator::PostIncrement,
+                                        vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                            token: Token::new(
+                                                TokenType::Identifier,
+                                                TokenLocation { row: 1, column: 5 },
+                                                "a",
+                                            ),
+                                        }))],
+                                    ),
+                                ],
+                            ),
+                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
+                                value: 2.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 1, column: 11 },
+                                    "2",
+                                ),
+                            })),
+                        ],
+                    ),
+                }],
+            },
+        };
+        assert_eq!(tree, expected_tree);
         Ok(())
     }
 }
