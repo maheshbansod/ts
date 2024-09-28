@@ -7,8 +7,9 @@ use super::{PAtom, PIdentifier, ParseResult, Parser, ParserError};
 #[derive(Debug, PartialEq)]
 pub(super) enum POperator<'a> {
     BinaryAdd(Token<'a>),
-    Negate(Token<'a>),
+    Divide(Token<'a>),
     Multiply(Token<'a>),
+    Negate(Token<'a>),
     Subtract(Token<'a>),
 }
 
@@ -42,8 +43,9 @@ impl<'a> Display for POperator<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             POperator::BinaryAdd(_) => write!(f, "+"),
-            POperator::Negate(_) => write!(f, "-"),
+            POperator::Divide(_) => write!(f, "/"),
             POperator::Multiply(_) => write!(f, "*"),
+            POperator::Negate(_) => write!(f, "-"),
             POperator::Subtract(_) => write!(f, "-"),
         }
     }
@@ -135,8 +137,9 @@ impl<'a> Parser<'a> {
 
     const fn infix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
-            TokenType::Plus => Ok(POperator::BinaryAdd(token)),
             TokenType::Minus => Ok(POperator::Subtract(token)),
+            TokenType::Plus => Ok(POperator::BinaryAdd(token)),
+            TokenType::Slash => Ok(POperator::Divide(token)),
             TokenType::Star => Ok(POperator::Multiply(token)),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
@@ -145,8 +148,10 @@ impl<'a> Parser<'a> {
 
 const fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
     match token_type {
-        TokenType::Plus => Some((1, 2)),
         TokenType::Minus => Some((1, 2)),
+        TokenType::Plus => Some((1, 2)),
+
+        TokenType::Slash => Some((5, 6)),
         TokenType::Star => Some((5, 6)),
         _ => None,
     }
@@ -385,6 +390,44 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn division<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("3 / 2")?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Cons(
+                        POperator::Divide(Token::new(
+                            TokenType::Slash,
+                            TokenLocation { row: 1, column: 3 },
+                            "/",
+                        )),
+                        vec![
+                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
+                                value: 3.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 1, column: 1 },
+                                    "3",
+                                ),
+                            })),
+                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
+                                value: 2.0,
+                                token: Token::new(
+                                    TokenType::Literal,
+                                    TokenLocation { row: 1, column: 5 },
+                                    "2",
+                                ),
+                            })),
+                        ],
+                    ),
+                }],
+            },
+        };
+        assert_eq!(tree, expected_tree);
+        Ok(())
+    }
     #[test]
     fn add_associativity<'a>() -> ParseResult<'a, ()> {
         let (tree, errors) = parse_code("a + b + c")?;
