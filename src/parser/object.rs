@@ -17,7 +17,7 @@ impl<'a> Parser<'a> {
             if self.expect_token(TokenType::Destructure).is_ok() {
                 let expression = self.parse_expression()?;
                 let expression = PObjectEntry::Destructure(expression);
-                object_entries.push(expression)
+                object_entries.push(expression);
             } else {
                 let key_value = self.key_value()?;
                 let key_value = PObjectEntry::KeyValue(key_value);

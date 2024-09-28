@@ -308,15 +308,15 @@ impl<'a> Display for PExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PExpression::Atom(atom) => match atom {
-                PAtom::Literal(literal) => write!(f, "{}", literal),
-                PAtom::ObjectLiteral(object) => write!(f, "{{{}}}", object),
-                PAtom::Identifier(identifier) => write!(f, "{}", identifier),
-                PAtom::Function(function) => write!(f, "{}", function),
+                PAtom::Literal(literal) => write!(f, "{literal}"),
+                PAtom::ObjectLiteral(object) => write!(f, "{{{object}}}"),
+                PAtom::Identifier(identifier) => write!(f, "{identifier}"),
+                PAtom::Function(function) => write!(f, "{function}"),
             },
             PExpression::Cons(operator, rest) => {
-                write!(f, "{} (", operator)?;
+                write!(f, "{operator} (")?;
                 for expr in rest {
-                    write!(f, "{} ", expr)?;
+                    write!(f, "{expr} ")?;
                 }
                 write!(f, ")")
             }
@@ -327,8 +327,8 @@ impl<'a> Display for PExpression<'a> {
 impl<'a> Display for PLiteralPrimitive<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PLiteralPrimitive::Number { value, .. } => write!(f, "{}", value),
-            PLiteralPrimitive::String { value, .. } => write!(f, "str({})", value),
+            PLiteralPrimitive::Number { value, .. } => write!(f, "{value}"),
+            PLiteralPrimitive::String { value, .. } => write!(f, "str({value})"),
         }
     }
 }
@@ -336,7 +336,7 @@ impl<'a> Display for PLiteralPrimitive<'a> {
 impl<'a> Display for PObject<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for entry in &self.entries {
-            write!(f, "{},", entry)?;
+            write!(f, "{entry},")?;
         }
         Ok(())
     }
@@ -346,7 +346,7 @@ impl<'a> Display for PObjectEntry<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PObjectEntry::KeyValue(PKeyValue { .. }) => todo!(),
-            PObjectEntry::Destructure(exp) => write!(f, "[{}]", exp)?,
+            PObjectEntry::Destructure(exp) => write!(f, "[{exp}]")?,
         }
         Ok(())
     }
@@ -365,11 +365,11 @@ impl<'a> Display for PFunction<'a> {
         } else {
             "<anon>"
         };
-        write!(f, "function({})", fname)?;
+        write!(f, "function({fname})")?;
         for statement in &self.body {
             write!(f, "{statement}")?;
         }
-        write!(f, "functionend({})", fname)?;
+        write!(f, "functionend({fname})")?;
         Ok(())
     }
 }
@@ -417,15 +417,15 @@ impl TryFrom<TokenType> for BindingType {
 
     fn try_from(value: TokenType) -> Result<Self, Self::Error> {
         match value {
-            TokenType::Const => Ok(BindingType::Const),
-            TokenType::Let => Ok(BindingType::Let),
+            TokenType::Const => Ok(Self::Const),
+            TokenType::Let => Ok(Self::Let),
             _ => Err(()),
         }
     }
 }
 
 #[cfg(test)]
-fn parse_code<'a>(code: &'a str) -> ParseResult<'a, (ParseTree<'a>, Vec<ParserError<'a>>)> {
+fn parse_code(code: &str) -> ParseResult<'_, (ParseTree<'_>, Vec<ParserError<'_>>)> {
     let tokenizer = Tokenizer::new(code);
     let parser = Parser::new(tokenizer);
     parser.parse()

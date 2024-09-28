@@ -143,7 +143,7 @@ mod tests {
         let mut parser = Parser::new(Tokenizer::new(code));
         let tree = parser.parse_expression().expect("it should parse");
 
-        assert_eq!(tree.to_string(), "- (1 )")
+        assert_eq!(tree.to_string(), "- (1 )");
     }
 
     #[test]
@@ -152,7 +152,7 @@ mod tests {
         let mut parser = Parser::new(Tokenizer::new(code));
         let tree = parser.parse_expression().expect("it should parse");
 
-        assert_eq!(tree.to_string(), "+ (+ (4 3 ) - (2 ) )")
+        assert_eq!(tree.to_string(), "+ (+ (4 3 ) - (2 ) )");
     }
 
     #[test]

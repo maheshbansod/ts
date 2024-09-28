@@ -1,6 +1,6 @@
 use std::str::CharIndices;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TokenType {
     Assign,
     BraceClose,
@@ -29,7 +29,7 @@ pub enum TokenType {
     Unknown,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token<'a> {
     token_type: TokenType,
     lexeme: &'a str,
@@ -110,7 +110,7 @@ impl<'a> Tokenizer<'a> {
             Tokenizer::consume_while_it(&self.char_indices, condition)
         {
             self.char_indices = it;
-            return Some(&self.code[first_index..last_index + 1]);
+            return Some(&self.code[first_index..=last_index]);
         }
         None
     }
@@ -150,11 +150,11 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn consume_whitespace(&mut self) -> Option<&'a str> {
-        if let Some(whitespace) = self.consume_while(|c| c.is_whitespace()) {
-            if whitespace.contains("\n") {
+        if let Some(whitespace) = self.consume_while(char::is_whitespace) {
+            if whitespace.contains('\n') {
                 let n_nl = whitespace.chars().filter(|c| *c == '\n').count();
                 self.current_line += n_nl;
-                let n_chars_after_nl = whitespace.len() - whitespace.rfind("\n").unwrap() - 1;
+                let n_chars_after_nl = whitespace.len() - whitespace.rfind('\n').unwrap() - 1;
                 let mut it_clone = self.char_indices.clone();
 
                 if let Some((i, _)) = it_clone.next() {
@@ -176,7 +176,7 @@ impl<'a> Tokenizer<'a> {
         last: usize,
     ) -> Token<'a> {
         self.char_indices = it;
-        let lexeme = &self.code[first..last + 1];
+        let lexeme = &self.code[first..=last];
         Token::new(
             token_type,
             TokenLocation {
@@ -271,7 +271,7 @@ impl<'a> Tokenizer<'a> {
         match it_clone.next() {
             Some((first, c)) if c.is_alphabetic() => {
                 if let Some((_, last_index, it)) =
-                    Tokenizer::consume_while_it(&it_clone, |c| c.is_alphanumeric())
+                    Tokenizer::consume_while_it(&it_clone, char::is_alphanumeric)
                 {
                     return Some(self.match_token(it, TokenType::Identifier, first, last_index));
                 }
@@ -293,7 +293,7 @@ impl<'a> Tokenizer<'a> {
         match it_clone.next() {
             Some((_, c)) if c.is_numeric() => {
                 let (first_index, last_index, it) =
-                    Tokenizer::consume_while_it(&self.char_indices, |c| c.is_numeric()).unwrap();
+                    Tokenizer::consume_while_it(&self.char_indices, char::is_numeric).unwrap();
                 Some(self.match_token(it, TokenType::Literal, first_index, last_index))
             }
             Some((first_index, c)) if is_quote(c) => {
@@ -362,7 +362,7 @@ impl<'a> Iterator for Tokenizer<'a> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TokenLocation {
     pub row: usize,
     pub column: usize,
@@ -742,7 +742,7 @@ x
                 "]",
             ),
         ];
-        assert_eq!(expected_tokens, tokenizer.collect::<Vec<_>>())
+        assert_eq!(expected_tokens, tokenizer.collect::<Vec<_>>());
     }
 
     #[test]
