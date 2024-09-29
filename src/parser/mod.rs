@@ -64,7 +64,13 @@ impl<'a> Parser<'a> {
                     }
                     break;
                 }
-                Err(e) => errors.push(e),
+                Err(e) => {
+                    errors.push(e);
+                    // since the statement wasn't parsed properly, we should move ahead i guess -
+                    // maybe i'll consume the next token for now - maybe later i'll see if we can
+                    // move to next statement?
+                    self.tokenizer.next();
+                }
             }
         }
         Ok((statements, errors))
@@ -598,15 +604,15 @@ let x = function ( {};
         let parser = Parser::new(tokenizer);
         let (_tree, errors) = parser.parse().expect("should parse");
         assert_eq!(
-            errors,
-            vec![ParserError::ExpectedToken {
+            errors[0],
+            ParserError::ExpectedToken {
                 expected: TokenType::ParenthesisClose,
                 got: Token::new(
                     TokenType::BraceOpen,
                     TokenLocation { row: 2, column: 20 },
                     "{"
                 )
-            }]
+            }
         );
         // } - // editor is acting weird and parsing the above opening brace in string as an
         // opening brace.
