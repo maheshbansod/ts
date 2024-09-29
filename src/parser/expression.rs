@@ -23,6 +23,22 @@ pub(super) enum PExpression<'a> {
     Cons(POperator<'a>, Vec<PExpression<'a>>),
 }
 
+impl<'a> POperator<'a> {
+    const fn token_type(&self) -> &TokenType {
+        match self {
+            Self::BinaryAdd(token)
+            | Self::Divide(token)
+            | Self::FunctionCall(token)
+            | Self::Multiply(token)
+            | Self::Negate(token)
+            | Self::PostIncrement(token)
+            | Self::PreIncrement(token)
+            | Self::Subscript(token)
+            | Self::Subtract(token) => token.token_type(),
+        }
+    }
+}
+
 impl<'a> Display for PExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -125,27 +141,16 @@ impl<'a> Parser<'a> {
                 lhs = PExpression::Cons(POperator::FunctionCall(op_token), call_args);
                 continue;
             }
-            if let Some((l_bp, r_bp)) = infix_binding_power(op_token.token_type()) {
-                if l_bp < min_binding_power {
-                    break;
-                }
-                let token = self.tokenizer.next().expect("Already peeked ");
-                let operator =
-                    Parser::infix_token_as_operator(token).expect("Already peeked and checked");
+            if let Some((operator, (_, r_bp))) = self.try_parse_infix_operator(min_binding_power) {
                 let rhs = self.parse_expression_pratt(r_bp)?;
                 lhs = PExpression::Cons(operator, vec![lhs, rhs]);
 
                 continue;
             }
-            if let Some((l_bp, ())) = postfix_binding_power(op_token.token_type()) {
-                if l_bp < min_binding_power {
-                    break;
-                }
-                let token = self.tokenizer.next().expect("Already peeked ");
-                let token_type = token.token_type().clone();
-                let operator =
-                    Parser::postfix_token_as_operator(token).expect("Already peeked and checked");
-                if token_type == TokenType::SquareBracketOpen {
+            if let Some((operator, (_l_bp, _r_bp))) =
+                self.try_parse_postfix_operator(min_binding_power)
+            {
+                if operator.token_type() == &TokenType::SquareBracketOpen {
                     // subscript operator []
                     let expression = self.parse_expression()?;
                     self.expect_token(TokenType::SquareBracketClose)?;
@@ -187,6 +192,40 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn try_parse_infix_operator(&mut self, min_bp: u8) -> Option<(POperator<'a>, (u8, u8))> {
+        let token = self.tokenizer.peek()?;
+        let token = token.clone();
+        let (operator, (l_bp, r_bp)) = match token.token_type() {
+            TokenType::Minus => Some((POperator::Subtract(token), (3, 4))),
+            TokenType::Plus => Some((POperator::BinaryAdd(token), (3, 4))),
+            TokenType::Slash => Some((POperator::Divide(token), (7, 8))),
+            TokenType::Star => Some((POperator::Multiply(token), (7, 8))),
+            _ => None,
+        }?;
+        if l_bp < min_bp {
+            None
+        } else {
+            self.tokenizer.next();
+            Some((operator, (l_bp, r_bp)))
+        }
+    }
+
+    fn try_parse_postfix_operator(&mut self, min_bp: u8) -> Option<(POperator<'a>, (u8, ()))> {
+        let token = self.tokenizer.peek()?;
+        let token = token.clone();
+        let (operator, (l_bp, r_bp)) = match token.token_type() {
+            TokenType::Increment => Some((POperator::PostIncrement(token), (11, ()))),
+            TokenType::SquareBracketOpen => Some((POperator::Subscript(token), (13, ()))),
+            _ => None,
+        }?;
+        if l_bp < min_bp {
+            None
+        } else {
+            self.tokenizer.next();
+            Some((operator, (l_bp, r_bp)))
+        }
+    }
+
     const fn prefix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
             TokenType::Increment => Ok(POperator::PreIncrement(token)),
@@ -194,45 +233,11 @@ impl<'a> Parser<'a> {
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
-
-    const fn infix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
-        match token.token_type() {
-            TokenType::Minus => Ok(POperator::Subtract(token)),
-            TokenType::Plus => Ok(POperator::BinaryAdd(token)),
-            TokenType::Slash => Ok(POperator::Divide(token)),
-            TokenType::Star => Ok(POperator::Multiply(token)),
-            _ => Err(ParserError::UnexpectedToken(token)),
-        }
-    }
-
-    const fn postfix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
-        match token.token_type() {
-            TokenType::Increment => Ok(POperator::PostIncrement(token)),
-            TokenType::SquareBracketOpen => Ok(POperator::Subscript(token)),
-            _ => Err(ParserError::UnexpectedToken(token)),
-        }
-    }
-}
-
-const fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
-    match token_type {
-        TokenType::Minus | TokenType::Plus => Some((1, 2)),
-
-        TokenType::Slash | TokenType::Star => Some((5, 6)),
-        _ => None,
-    }
 }
 const fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
     match token_type {
         TokenType::Increment => Some(((), 10)),
         TokenType::Minus | TokenType::Plus => Some(((), 8)),
-        _ => None,
-    }
-}
-const fn postfix_binding_power(token_type: &TokenType) -> Option<(u8, ())> {
-    match token_type {
-        TokenType::Increment => Some((11, ())),
-        TokenType::SquareBracketOpen => Some((13, ())),
         _ => None,
     }
 }
