@@ -31,6 +31,7 @@ pub enum TokenType {
     SquareBracketOpen,
     /// Marker for an unknown token
     Unknown,
+    While,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -212,6 +213,9 @@ impl<'a> Tokenizer<'a> {
                 },
                 _ => None,
             },
+            Some((first, 'w')) => {
+                self.merge_rest_in_token(it_clone, first, "hile", TokenType::While)
+            }
             _ => None,
         }
     }
@@ -753,7 +757,7 @@ x
 
     #[test]
     fn keywords() {
-        let code = "let function const if else";
+        let code = "let function const if else while";
         let tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(TokenType::Let, TokenLocation { row: 1, column: 1 }, "let"),
@@ -772,6 +776,11 @@ x
                 TokenType::Else,
                 TokenLocation { row: 1, column: 23 },
                 "else",
+            ),
+            Token::new(
+                TokenType::While,
+                TokenLocation { row: 1, column: 28 },
+                "while",
             ),
         ];
         let actual_tokens = tokenizer.collect::<Vec<_>>();
