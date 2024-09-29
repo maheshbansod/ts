@@ -25,12 +25,7 @@ pub(super) enum PExpression<'a> {
 impl<'a> Display for PExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PExpression::Atom(atom) => match atom {
-                PAtom::Literal(literal) => write!(f, "{literal}"),
-                PAtom::ObjectLiteral(object) => write!(f, "{{{object}}}"),
-                PAtom::Identifier(identifier) => write!(f, "{identifier}"),
-                PAtom::Function(function) => write!(f, "{function}"),
-            },
+            PExpression::Atom(atom) => write!(f, "{atom}"),
             PExpression::Cons(operator, rest) => {
                 write!(f, "{operator} (")?;
                 for expr in rest {
@@ -38,6 +33,17 @@ impl<'a> Display for PExpression<'a> {
                 }
                 write!(f, ")")
             }
+        }
+    }
+}
+
+impl<'a> Display for PAtom<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PAtom::Literal(literal) => write!(f, "{literal}"),
+            PAtom::ObjectLiteral(object) => write!(f, "{{{object}}}"),
+            PAtom::Identifier(identifier) => write!(f, "{identifier}"),
+            PAtom::Function(function) => write!(f, "{function}"),
         }
     }
 }
