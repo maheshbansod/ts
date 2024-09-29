@@ -397,6 +397,7 @@ mod tests {
         parser::expression::POperator,
         tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
     };
+    use expression::POperatorKind;
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -463,11 +464,14 @@ let z = x + y;
                             ),
                         },
                         value: Some(PExpression::Cons(
-                            POperator::BinaryAdd(Token::new(
-                                TokenType::Plus,
-                                TokenLocation { row: 4, column: 11 },
-                                "+",
-                            )),
+                            POperator::new(
+                                POperatorKind::BinaryAdd,
+                                Token::new(
+                                    TokenType::Plus,
+                                    TokenLocation { row: 4, column: 11 },
+                                    "+",
+                                ),
+                            ),
                             vec![
                                 PExpression::Atom(PAtom::Identifier(PIdentifier {
                                     token: Token::new(
@@ -555,11 +559,14 @@ y;
                             },
                             PStatement::Expression {
                                 expression: PExpression::Cons(
-                                    POperator::BinaryAdd(Token::new(
-                                        TokenType::Plus,
-                                        TokenLocation { row: 5, column: 7 },
-                                        "+",
-                                    )),
+                                    POperator::new(
+                                        POperatorKind::BinaryAdd,
+                                        Token::new(
+                                            TokenType::Plus,
+                                            TokenLocation { row: 5, column: 7 },
+                                            "+",
+                                        ),
+                                    ),
                                     vec![
                                         PExpression::Atom(PAtom::Identifier(PIdentifier {
                                             token: Token::new(

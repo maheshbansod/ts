@@ -5,16 +5,22 @@ use crate::tokenizer::{Token, TokenType};
 use super::{PAtom, PIdentifier, ParseResult, Parser, ParserError};
 
 #[derive(Debug, PartialEq)]
-pub(super) enum POperator<'a> {
-    BinaryAdd(Token<'a>),
-    Divide(Token<'a>),
-    FunctionCall(Token<'a>),
-    Multiply(Token<'a>),
-    Negate(Token<'a>),
-    PostIncrement(Token<'a>),
-    PreIncrement(Token<'a>),
-    Subscript(Token<'a>),
-    Subtract(Token<'a>),
+pub(super) struct POperator<'a> {
+    kind: POperatorKind,
+    token: Token<'a>,
+}
+
+#[derive(Debug, PartialEq)]
+pub(super) enum POperatorKind {
+    BinaryAdd,
+    Divide,
+    FunctionCall,
+    Multiply,
+    Negate,
+    PostIncrement,
+    PreIncrement,
+    Subscript,
+    Subtract,
 }
 
 #[derive(Debug, PartialEq)]
@@ -24,18 +30,15 @@ pub(super) enum PExpression<'a> {
 }
 
 impl<'a> POperator<'a> {
+    pub(super) const fn new(kind: POperatorKind, token: Token<'a>) -> Self {
+        Self { kind, token }
+    }
     const fn token_type(&self) -> &TokenType {
-        match self {
-            Self::BinaryAdd(token)
-            | Self::Divide(token)
-            | Self::FunctionCall(token)
-            | Self::Multiply(token)
-            | Self::Negate(token)
-            | Self::PostIncrement(token)
-            | Self::PreIncrement(token)
-            | Self::Subscript(token)
-            | Self::Subtract(token) => token.token_type(),
-        }
+        self.token.token_type()
+    }
+
+    const fn kind(&self) -> &POperatorKind {
+        &self.kind
     }
 }
 
@@ -67,14 +70,14 @@ impl<'a> Display for PAtom<'a> {
 
 impl<'a> Display for POperator<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            POperator::BinaryAdd(_) => write!(f, "+"),
-            POperator::Divide(_) => write!(f, "/"),
-            POperator::FunctionCall(_) => write!(f, "CALL"),
-            POperator::Multiply(_) => write!(f, "*"),
-            POperator::Negate(_) | POperator::Subtract(_) => write!(f, "-"),
-            POperator::PostIncrement(_) | POperator::PreIncrement(_) => write!(f, "++"),
-            POperator::Subscript(_) => write!(f, "[]"),
+        match self.kind() {
+            POperatorKind::BinaryAdd => write!(f, "+"),
+            POperatorKind::Divide => write!(f, "/"),
+            POperatorKind::FunctionCall => write!(f, "CALL"),
+            POperatorKind::Multiply => write!(f, "*"),
+            POperatorKind::Negate | POperatorKind::Subtract => write!(f, "-"),
+            POperatorKind::PostIncrement | POperatorKind::PreIncrement => write!(f, "++"),
+            POperatorKind::Subscript => write!(f, "[]"),
         }
     }
 }
@@ -138,7 +141,10 @@ impl<'a> Parser<'a> {
                 }
                 let mut call_args = vec![lhs];
                 call_args.extend(args);
-                lhs = PExpression::Cons(POperator::FunctionCall(op_token), call_args);
+                lhs = PExpression::Cons(
+                    POperator::new(POperatorKind::FunctionCall, op_token),
+                    call_args,
+                );
                 continue;
             }
             if let Some((operator, (_, r_bp))) = self.try_parse_infix_operator(min_binding_power) {
@@ -196,10 +202,10 @@ impl<'a> Parser<'a> {
         let token = self.tokenizer.peek()?;
         let token = token.clone();
         let (operator, (l_bp, r_bp)) = match token.token_type() {
-            TokenType::Minus => Some((POperator::Subtract(token), (3, 4))),
-            TokenType::Plus => Some((POperator::BinaryAdd(token), (3, 4))),
-            TokenType::Slash => Some((POperator::Divide(token), (7, 8))),
-            TokenType::Star => Some((POperator::Multiply(token), (7, 8))),
+            TokenType::Minus => Some((POperator::new(POperatorKind::Subtract, token), (3, 4))),
+            TokenType::Plus => Some((POperator::new(POperatorKind::BinaryAdd, token), (3, 4))),
+            TokenType::Slash => Some((POperator::new(POperatorKind::Divide, token), (7, 8))),
+            TokenType::Star => Some((POperator::new(POperatorKind::Multiply, token), (7, 8))),
             _ => None,
         }?;
         if l_bp < min_bp {
@@ -214,8 +220,13 @@ impl<'a> Parser<'a> {
         let token = self.tokenizer.peek()?;
         let token = token.clone();
         let (operator, (l_bp, r_bp)) = match token.token_type() {
-            TokenType::Increment => Some((POperator::PostIncrement(token), (11, ()))),
-            TokenType::SquareBracketOpen => Some((POperator::Subscript(token), (13, ()))),
+            TokenType::Increment => Some((
+                POperator::new(POperatorKind::PostIncrement, token),
+                (11, ()),
+            )),
+            TokenType::SquareBracketOpen => {
+                Some((POperator::new(POperatorKind::Subscript, token), (13, ())))
+            }
             _ => None,
         }?;
         if l_bp < min_bp {
@@ -228,8 +239,8 @@ impl<'a> Parser<'a> {
 
     const fn prefix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
-            TokenType::Increment => Ok(POperator::PreIncrement(token)),
-            TokenType::Minus => Ok(POperator::Negate(token)),
+            TokenType::Increment => Ok(POperator::new(POperatorKind::PreIncrement, token)),
+            TokenType::Minus => Ok(POperator::new(POperatorKind::Negate, token)),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
@@ -253,7 +264,7 @@ const fn is_token_prefix_operator(token_type: &TokenType) -> bool {
 mod tests {
     use crate::{
         parser::{
-            expression::{PExpression, POperator},
+            expression::{PExpression, POperator, POperatorKind},
             parse_code, PAtom, PIdentifier, PLiteralPrimitive, PStatement, ParseResult, ParseTree,
             ParseTreeRoot, Parser,
         },
@@ -337,61 +348,15 @@ mod tests {
         let tokenizer = Tokenizer::new(code);
         let mut parser = Parser::new(tokenizer);
         assert_eq!(
-            parser.parse_expression().expect("should parse"),
-            PExpression::Cons(
-                POperator::BinaryAdd(Token::new(
-                    TokenType::Plus,
-                    TokenLocation { row: 1, column: 3 },
-                    "+"
-                )),
-                vec![
-                    PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                        value: 4.0,
-                        token: Token::new(
-                            TokenType::Literal,
-                            TokenLocation { row: 1, column: 1 },
-                            "4"
-                        )
-                    })),
-                    PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                        value: 3.0,
-                        token: Token::new(
-                            TokenType::Literal,
-                            TokenLocation { row: 1, column: 5 },
-                            "3"
-                        )
-                    }))
-                ]
-            )
+            parser.parse_expression().expect("should parse").to_string(),
+            "+ (4 3 )"
         );
         let code = "a + b";
         let tokenizer = Tokenizer::new(code);
         let mut parser = Parser::new(tokenizer);
         assert_eq!(
-            parser.parse_expression().expect("should parse"),
-            PExpression::Cons(
-                POperator::BinaryAdd(Token::new(
-                    TokenType::Plus,
-                    TokenLocation { row: 1, column: 3 },
-                    "+"
-                )),
-                vec![
-                    PExpression::Atom(PAtom::Identifier(PIdentifier {
-                        token: Token::new(
-                            TokenType::Identifier,
-                            TokenLocation { row: 1, column: 1 },
-                            "a"
-                        )
-                    })),
-                    PExpression::Atom(PAtom::Identifier(PIdentifier {
-                        token: Token::new(
-                            TokenType::Identifier,
-                            TokenLocation { row: 1, column: 5 },
-                            "b"
-                        )
-                    })),
-                ]
-            )
+            parser.parse_expression().expect("should parse").to_string(),
+            "+ (a b )"
         );
     }
 
@@ -426,11 +391,14 @@ mod tests {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
                     expression: PExpression::Cons(
-                        POperator::Subtract(Token::new(
-                            TokenType::Minus,
-                            TokenLocation { row: 1, column: 3 },
-                            "-",
-                        )),
+                        POperator {
+                            kind: POperatorKind::Subtract,
+                            token: Token::new(
+                                TokenType::Minus,
+                                TokenLocation { row: 1, column: 3 },
+                                "-",
+                            ),
+                        },
                         vec![
                             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 3.0,
@@ -465,11 +433,14 @@ mod tests {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
                     expression: PExpression::Cons(
-                        POperator::Multiply(Token::new(
-                            TokenType::Star,
-                            TokenLocation { row: 1, column: 3 },
-                            "*",
-                        )),
+                        POperator {
+                            kind: POperatorKind::Multiply,
+                            token: Token::new(
+                                TokenType::Star,
+                                TokenLocation { row: 1, column: 3 },
+                                "*",
+                            ),
+                        },
                         vec![
                             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 3.0,
@@ -504,11 +475,14 @@ mod tests {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
                     expression: PExpression::Cons(
-                        POperator::Divide(Token::new(
-                            TokenType::Slash,
-                            TokenLocation { row: 1, column: 3 },
-                            "/",
-                        )),
+                        POperator {
+                            kind: POperatorKind::Divide,
+                            token: (Token::new(
+                                TokenType::Slash,
+                                TokenLocation { row: 1, column: 3 },
+                                "/",
+                            )),
+                        },
                         vec![
                             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 3.0,
@@ -536,54 +510,10 @@ mod tests {
     }
     #[test]
     fn add_associativity<'a>() -> ParseResult<'a, ()> {
-        let (tree, errors) = parse_code("a + b + c")?;
-        assert_eq!(errors, vec![]);
-        let expected_tree = ParseTree {
-            root: ParseTreeRoot {
-                statements: vec![PStatement::Expression {
-                    expression: PExpression::Cons(
-                        POperator::BinaryAdd(Token::new(
-                            TokenType::Plus,
-                            TokenLocation { row: 1, column: 7 },
-                            "+",
-                        )),
-                        vec![
-                            PExpression::Cons(
-                                POperator::BinaryAdd(Token::new(
-                                    TokenType::Plus,
-                                    TokenLocation { row: 1, column: 3 },
-                                    "+",
-                                )),
-                                vec![
-                                    PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                        token: Token::new(
-                                            TokenType::Identifier,
-                                            TokenLocation { row: 1, column: 1 },
-                                            "a",
-                                        ),
-                                    })),
-                                    PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                        token: Token::new(
-                                            TokenType::Identifier,
-                                            TokenLocation { row: 1, column: 5 },
-                                            "b",
-                                        ),
-                                    })),
-                                ],
-                            ),
-                            PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 1, column: 9 },
-                                    "c",
-                                ),
-                            })),
-                        ],
-                    ),
-                }],
-            },
-        };
-        assert_eq!(expected_tree, tree);
+        let code = "a + b + c";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "+ (+ (a b ) c )");
         Ok(())
     }
     #[test]
@@ -594,18 +524,24 @@ mod tests {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
                     expression: PExpression::Cons(
-                        POperator::BinaryAdd(Token::new(
-                            TokenType::Plus,
-                            TokenLocation { row: 1, column: 9 },
-                            "+",
-                        )),
+                        POperator {
+                            kind: POperatorKind::BinaryAdd,
+                            token: Token::new(
+                                TokenType::Plus,
+                                TokenLocation { row: 1, column: 9 },
+                                "+",
+                            ),
+                        },
                         vec![
                             PExpression::Cons(
-                                POperator::BinaryAdd(Token::new(
-                                    TokenType::Plus,
-                                    TokenLocation { row: 1, column: 3 },
-                                    "+",
-                                )),
+                                POperator {
+                                    kind: POperatorKind::BinaryAdd,
+                                    token: Token::new(
+                                        TokenType::Plus,
+                                        TokenLocation { row: 1, column: 3 },
+                                        "+",
+                                    ),
+                                },
                                 vec![
                                     PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                         value: 3.0,
@@ -616,11 +552,14 @@ mod tests {
                                         ),
                                     })),
                                     PExpression::Cons(
-                                        POperator::PostIncrement(Token::new(
-                                            TokenType::Increment,
-                                            TokenLocation { row: 1, column: 6 },
-                                            "++",
-                                        )),
+                                        POperator {
+                                            kind: POperatorKind::PostIncrement,
+                                            token: Token::new(
+                                                TokenType::Increment,
+                                                TokenLocation { row: 1, column: 6 },
+                                                "++",
+                                            ),
+                                        },
                                         vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
                                             token: Token::new(
                                                 TokenType::Identifier,
@@ -632,11 +571,14 @@ mod tests {
                                 ],
                             ),
                             PExpression::Cons(
-                                POperator::PreIncrement(Token::new(
-                                    TokenType::Increment,
-                                    TokenLocation { row: 1, column: 11 },
-                                    "++",
-                                )),
+                                POperator {
+                                    kind: POperatorKind::PreIncrement,
+                                    token: Token::new(
+                                        TokenType::Increment,
+                                        TokenLocation { row: 1, column: 11 },
+                                        "++",
+                                    ),
+                                },
                                 vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
                                     token: Token::new(
                                         TokenType::Identifier,
@@ -662,11 +604,14 @@ mod tests {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
                     expression: PExpression::Cons(
-                        POperator::FunctionCall(Token::new(
-                            TokenType::ParenthesisOpen,
-                            TokenLocation { row: 1, column: 4 },
-                            "(",
-                        )),
+                        POperator {
+                            kind: POperatorKind::FunctionCall,
+                            token: Token::new(
+                                TokenType::ParenthesisOpen,
+                                TokenLocation { row: 1, column: 4 },
+                                "(",
+                            ),
+                        },
                         vec![
                             PExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
@@ -700,66 +645,19 @@ mod tests {
 
     #[test]
     fn function_call_no_args<'a>() -> ParseResult<'a, ()> {
-        let (tree, errors) = parse_code("foo()")?;
-        assert_eq!(errors, vec![]);
-        let expected_tree = ParseTree {
-            root: ParseTreeRoot {
-                statements: vec![PStatement::Expression {
-                    expression: PExpression::Cons(
-                        POperator::FunctionCall(Token::new(
-                            TokenType::ParenthesisOpen,
-                            TokenLocation { row: 1, column: 4 },
-                            "(",
-                        )),
-                        vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
-                            token: Token::new(
-                                TokenType::Identifier,
-                                TokenLocation { row: 1, column: 1 },
-                                "foo",
-                            ),
-                        }))],
-                    ),
-                }],
-            },
-        };
-        assert_eq!(expected_tree, tree);
+        let code = "foo()";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "CALL (foo )");
         Ok(())
     }
 
     #[test]
     fn function_call<'a>() -> ParseResult<'a, ()> {
-        let (tree, errors) = parse_code("foo(a)")?;
-        assert_eq!(errors, vec![]);
-        let expected_tree = ParseTree {
-            root: ParseTreeRoot {
-                statements: vec![PStatement::Expression {
-                    expression: PExpression::Cons(
-                        POperator::FunctionCall(Token::new(
-                            TokenType::ParenthesisOpen,
-                            TokenLocation { row: 1, column: 4 },
-                            "(",
-                        )),
-                        vec![
-                            PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 1, column: 1 },
-                                    "foo",
-                                ),
-                            })),
-                            PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenType::Identifier,
-                                    TokenLocation { row: 1, column: 5 },
-                                    "a",
-                                ),
-                            })),
-                        ],
-                    ),
-                }],
-            },
-        };
-        assert_eq!(expected_tree, tree);
+        let code = "foo(a)";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "CALL (foo a )");
         Ok(())
     }
 }

@@ -44,8 +44,9 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            expression::POperator, BindingType, PAtom, PExpression, PFunction, PIdentifier,
-            PLiteralPrimitive, PStatement, ParseTree, ParseTreeRoot, Parser,
+            expression::{POperator, POperatorKind},
+            BindingType, PAtom, PExpression, PFunction, PIdentifier, PLiteralPrimitive, PStatement,
+            ParseTree, ParseTreeRoot, Parser,
         },
         tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
     };
@@ -83,11 +84,14 @@ let y = x+1;
                                 ),
                             },
                             value: Some(PExpression::Cons(
-                                POperator::BinaryAdd(Token::new(
-                                    TokenType::Plus,
-                                    TokenLocation { row: 3, column: 10 },
-                                    "+",
-                                )),
+                                POperator::new(
+                                    POperatorKind::BinaryAdd,
+                                    Token::new(
+                                        TokenType::Plus,
+                                        TokenLocation { row: 3, column: 10 },
+                                        "+",
+                                    ),
+                                ),
                                 vec![
                                     PExpression::Atom(PAtom::Identifier(PIdentifier {
                                         token: Token::new(
