@@ -78,6 +78,10 @@ impl<'a> Parser<'a> {
             }
         } else if let (Some(atom), _errors) = self.try_parse_atom()? {
             PExpression::Atom(atom)
+        } else if self.expect_token(TokenType::ParenthesisOpen).is_ok() {
+            let expression = self.parse_expression()?;
+            self.expect_token(TokenType::ParenthesisClose)?;
+            expression
         } else {
             let token = self.tokenizer.peek().unwrap().clone();
             return Err(ParserError::UnexpectedToken(token));
@@ -278,6 +282,22 @@ mod tests {
         let tree = parser.parse_expression().expect("it should parse");
 
         assert_eq!(tree.to_string(), "+ (+ (4 3 ) - (2 ) )");
+    }
+
+    #[test]
+    fn brackets<'a>() -> ParseResult<'a, ()> {
+        // with brackets
+        let code = "4 * (3 - 2) * 1 + 5";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "+ (* (* (4 - (3 2 ) ) 1 ) 5 )");
+
+        // without brackets
+        let code = "4 * 3 - 2 * 1 + 5";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "+ (- (* (4 3 ) * (2 1 ) ) 5 )");
+        Ok(())
     }
 
     #[test]
