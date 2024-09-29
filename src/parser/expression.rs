@@ -13,6 +13,7 @@ pub(super) enum POperator<'a> {
     Negate(Token<'a>),
     PostIncrement(Token<'a>),
     PreIncrement(Token<'a>),
+    Subscript(Token<'a>),
     Subtract(Token<'a>),
 }
 
@@ -57,6 +58,7 @@ impl<'a> Display for POperator<'a> {
             POperator::Multiply(_) => write!(f, "*"),
             POperator::Negate(_) | POperator::Subtract(_) => write!(f, "-"),
             POperator::PostIncrement(_) | POperator::PreIncrement(_) => write!(f, "++"),
+            POperator::Subscript(_) => write!(f, "[]"),
         }
     }
 }
@@ -121,6 +123,13 @@ impl<'a> Parser<'a> {
                 let mut call_args = vec![lhs];
                 call_args.extend(args);
                 lhs = PExpression::Cons(POperator::FunctionCall(op_token), call_args);
+                continue;
+            } else if op_token.token_type() == &TokenType::SquareBracketOpen {
+                let op_token = self.tokenizer.next().unwrap();
+                // subscript operator []
+                let expression = self.parse_expression()?;
+                self.expect_token(TokenType::SquareBracketClose)?;
+                lhs = PExpression::Cons(POperator::Subscript(op_token), vec![lhs, expression]);
                 continue;
             }
 
@@ -288,6 +297,15 @@ mod tests {
         let tree = parser.parse_expression().expect("it should parse");
 
         assert_eq!(tree.to_string(), "+ (+ (4 3 ) - (2 ) )");
+    }
+
+    #[test]
+    fn subscript<'a>() -> ParseResult<'a, ()> {
+        let code = "4 * (3 - 2) * a[x] + 5";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "+ (* (* (4 - (3 2 ) ) [] (a x ) ) 5 )");
+        Ok(())
     }
 
     #[test]
