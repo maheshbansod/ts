@@ -17,3 +17,7 @@ things to do
 
 - [ ] use cargo-make or just or something
 - [ ] add README.md
+
+## extr
+
+- [ ] emit LLVM IR?
