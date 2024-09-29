@@ -124,15 +124,7 @@ impl<'a> Parser<'a> {
                 call_args.extend(args);
                 lhs = PExpression::Cons(POperator::FunctionCall(op_token), call_args);
                 continue;
-            } else if op_token.token_type() == &TokenType::SquareBracketOpen {
-                let op_token = self.tokenizer.next().unwrap();
-                // subscript operator []
-                let expression = self.parse_expression()?;
-                self.expect_token(TokenType::SquareBracketClose)?;
-                lhs = PExpression::Cons(POperator::Subscript(op_token), vec![lhs, expression]);
-                continue;
             }
-
             if let Some((l_bp, r_bp)) = infix_binding_power(op_token.token_type()) {
                 if l_bp < min_binding_power {
                     break;
@@ -150,9 +142,17 @@ impl<'a> Parser<'a> {
                     break;
                 }
                 let token = self.tokenizer.next().expect("Already peeked ");
+                let token_type = token.token_type().clone();
                 let operator =
                     Parser::postfix_token_as_operator(token).expect("Already peeked and checked");
-                lhs = PExpression::Cons(operator, vec![lhs]);
+                if token_type == TokenType::SquareBracketOpen {
+                    // subscript operator []
+                    let expression = self.parse_expression()?;
+                    self.expect_token(TokenType::SquareBracketClose)?;
+                    lhs = PExpression::Cons(operator, vec![lhs, expression]);
+                } else {
+                    lhs = PExpression::Cons(operator, vec![lhs]);
+                }
 
                 continue;
             }
@@ -208,6 +208,7 @@ impl<'a> Parser<'a> {
     const fn postfix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
             TokenType::Increment => Ok(POperator::PostIncrement(token)),
+            TokenType::SquareBracketOpen => Ok(POperator::Subscript(token)),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
@@ -230,7 +231,8 @@ const fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
 }
 const fn postfix_binding_power(token_type: &TokenType) -> Option<(u8, ())> {
     match token_type {
-        TokenType::Increment => Some((10, ())),
+        TokenType::Increment => Some((11, ())),
+        TokenType::SquareBracketOpen => Some((13, ())),
         _ => None,
     }
 }
