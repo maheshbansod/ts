@@ -49,10 +49,8 @@ impl<'a> Display for POperator<'a> {
             POperator::Divide(_) => write!(f, "/"),
             POperator::FunctionCall(_) => write!(f, "CALL"),
             POperator::Multiply(_) => write!(f, "*"),
-            POperator::Negate(_) => write!(f, "-"),
-            POperator::PostIncrement(_) => write!(f, "++"),
-            POperator::PreIncrement(_) => write!(f, "++"),
-            POperator::Subtract(_) => write!(f, "-"),
+            POperator::Negate(_) | POperator::Subtract(_) => write!(f, "-"),
+            POperator::PostIncrement(_) | POperator::PreIncrement(_) => write!(f, "++"),
         }
     }
 }
@@ -198,19 +196,16 @@ impl<'a> Parser<'a> {
 
 const fn infix_binding_power(token_type: &TokenType) -> Option<(u8, u8)> {
     match token_type {
-        TokenType::Minus => Some((1, 2)),
-        TokenType::Plus => Some((1, 2)),
+        TokenType::Minus | TokenType::Plus => Some((1, 2)),
 
-        TokenType::Slash => Some((5, 6)),
-        TokenType::Star => Some((5, 6)),
+        TokenType::Slash | TokenType::Star => Some((5, 6)),
         _ => None,
     }
 }
 const fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
     match token_type {
         TokenType::Increment => Some(((), 10)),
-        TokenType::Minus => Some(((), 8)),
-        TokenType::Plus => Some(((), 8)),
+        TokenType::Minus | TokenType::Plus => Some(((), 8)),
         _ => None,
     }
 }
