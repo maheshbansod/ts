@@ -8,6 +8,7 @@ use super::{PAtom, PIdentifier, ParseResult, Parser, ParserError};
 pub(super) enum POperator<'a> {
     BinaryAdd(Token<'a>),
     Divide(Token<'a>),
+    FunctionCall(Token<'a>),
     Multiply(Token<'a>),
     Negate(Token<'a>),
     PostIncrement(Token<'a>),
@@ -46,6 +47,7 @@ impl<'a> Display for POperator<'a> {
         match self {
             POperator::BinaryAdd(_) => write!(f, "+"),
             POperator::Divide(_) => write!(f, "/"),
+            POperator::FunctionCall(_) => write!(f, "CALL"),
             POperator::Multiply(_) => write!(f, "*"),
             POperator::Negate(_) => write!(f, "-"),
             POperator::PostIncrement(_) => write!(f, "++"),
@@ -67,18 +69,19 @@ impl<'a> Parser<'a> {
         let token = self.tokenizer.peek().ok_or(ParserError::UnexpectedEof)?;
         let mut lhs = if is_token_prefix_operator(token.token_type()) {
             let token_type = token.token_type().clone();
-            let token = self.tokenizer.next().unwrap();
             if let Some(((), bp)) = prefix_binding_power(&token_type) {
+                let token = self.tokenizer.next().unwrap();
                 let operator = Parser::prefix_token_as_operator(token).unwrap();
                 let rhs = self.parse_expression_pratt(bp)?;
                 PExpression::Cons(operator, vec![rhs])
             } else {
+                let token = self.tokenizer.peek().unwrap().clone();
                 return Err(ParserError::UnexpectedToken(token));
             }
         } else if let (Some(atom), _errors) = self.try_parse_atom()? {
             PExpression::Atom(atom)
         } else {
-            let token = self.tokenizer.next().unwrap();
+            let token = self.tokenizer.peek().unwrap().clone();
             return Err(ParserError::UnexpectedToken(token));
         };
 
@@ -88,6 +91,30 @@ impl<'a> Parser<'a> {
                 break;
             }
             let op_token = op_token.unwrap();
+
+            if op_token.token_type() == &TokenType::ParenthesisOpen {
+                // function call
+                let op_token = self.tokenizer.next().unwrap();
+                let mut args = vec![];
+                // parse args
+                loop {
+                    if let Ok(expression) = self.parse_expression() {
+                        args.push(expression);
+                        if self.expect_token(TokenType::Comma).is_err() {
+                            self.expect_token(TokenType::ParenthesisClose)?;
+
+                            break;
+                        }
+                    } else {
+                        self.expect_token(TokenType::ParenthesisClose)?;
+                        break;
+                    }
+                }
+                let mut call_args = vec![lhs];
+                call_args.extend(args);
+                lhs = PExpression::Cons(POperator::FunctionCall(op_token), call_args);
+                continue;
+            }
 
             if let Some((l_bp, r_bp)) = infix_binding_power(op_token.token_type()) {
                 if l_bp < min_binding_power {
@@ -578,6 +605,115 @@ mod tests {
             },
         };
         assert_eq!(tree, expected_tree);
+        Ok(())
+    }
+
+    #[test]
+    fn function_call_multi_args<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("foo(a, b)")?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Cons(
+                        POperator::FunctionCall(Token::new(
+                            TokenType::ParenthesisOpen,
+                            TokenLocation { row: 1, column: 4 },
+                            "(",
+                        )),
+                        vec![
+                            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 1, column: 1 },
+                                    "foo",
+                                ),
+                            })),
+                            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 1, column: 5 },
+                                    "a",
+                                ),
+                            })),
+                            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 1, column: 8 },
+                                    "b",
+                                ),
+                            })),
+                        ],
+                    ),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+        Ok(())
+    }
+
+    #[test]
+    fn function_call_no_args<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("foo()")?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Cons(
+                        POperator::FunctionCall(Token::new(
+                            TokenType::ParenthesisOpen,
+                            TokenLocation { row: 1, column: 4 },
+                            "(",
+                        )),
+                        vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
+                            token: Token::new(
+                                TokenType::Identifier,
+                                TokenLocation { row: 1, column: 1 },
+                                "foo",
+                            ),
+                        }))],
+                    ),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+        Ok(())
+    }
+
+    #[test]
+    fn function_call<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("foo(a)")?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Cons(
+                        POperator::FunctionCall(Token::new(
+                            TokenType::ParenthesisOpen,
+                            TokenLocation { row: 1, column: 4 },
+                            "(",
+                        )),
+                        vec![
+                            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 1, column: 1 },
+                                    "foo",
+                                ),
+                            })),
+                            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenType::Identifier,
+                                    TokenLocation { row: 1, column: 5 },
+                                    "a",
+                                ),
+                            })),
+                        ],
+                    ),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
         Ok(())
     }
 }
