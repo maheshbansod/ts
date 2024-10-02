@@ -12,6 +12,7 @@ pub enum TokenType {
     /// ... operator
     Destructure,
     Else,
+    Equals,
     Function,
     Identifier,
     If,
@@ -19,6 +20,8 @@ pub enum TokenType {
     Let,
     Literal,
     Minus,
+    Not,
+    NotEquals,
     ParenthesisClose,
     ParenthesisOpen,
     QuestionMark,
@@ -251,7 +254,12 @@ impl<'a> Tokenizer<'a> {
             Some((first, '-')) => self
                 .merge_rest_in_token(it_clone.clone(), first, "-", TokenType::Decrement)
                 .or_else(|| Some(self.match_token(it_clone, TokenType::Minus, first, first))),
-            Some((first, '=')) => Some(self.match_token(it_clone, TokenType::Assign, first, first)),
+            Some((first, '=')) => self
+                .merge_rest_in_token(it_clone.clone(), first, "=", TokenType::Equals)
+                .or_else(|| Some(self.match_token(it_clone, TokenType::Assign, first, first))),
+            Some((first, '!')) => self
+                .merge_rest_in_token(it_clone.clone(), first, "=", TokenType::NotEquals)
+                .or_else(|| Some(self.match_token(it_clone, TokenType::Not, first, first))),
             Some((first, '{')) => {
                 Some(self.match_token(it_clone, TokenType::BraceOpen, first, first))
             }
@@ -739,7 +747,7 @@ x
 
     #[test]
     fn operators() {
-        let code = "+ - * / ; , : ... [ ] ++ -- ?";
+        let code = "+ - * / ; , : ... [ ] ++ -- ? == != !";
         let tokenizer = Tokenizer::new(code);
         let expected = vec![
             "Plus",
@@ -755,6 +763,9 @@ x
             "Increment",
             "Decrement",
             "QuestionMark",
+            "Equals",
+            "NotEquals",
+            "Not",
         ];
         let actual = tokenizer.map(|t| t.to_string()).collect::<Vec<_>>();
         assert_eq!(expected, actual);
