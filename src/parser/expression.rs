@@ -682,4 +682,13 @@ mod tests {
         assert_eq!(tree.to_string(), "?: (a b c )");
         Ok(())
     }
+
+    #[test]
+    fn conditional_ternary2<'a>() -> ParseResult<'a, ()> {
+        let code = "4 + 3 ? 3 - 2 * 4 : c";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "?: (+ (4 3 ) - (3 * (2 4 ) ) c )");
+        Ok(())
+    }
 }
