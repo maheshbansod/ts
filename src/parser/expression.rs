@@ -13,6 +13,8 @@ pub(super) struct POperator<'a> {
 #[derive(Debug, PartialEq)]
 pub(super) enum POperatorKind {
     BinaryAdd,
+    /// The ?: operator
+    Conditional,
     Divide,
     FunctionCall,
     Multiply,
@@ -72,6 +74,7 @@ impl<'a> Display for POperator<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.kind() {
             POperatorKind::BinaryAdd => write!(f, "+"),
+            POperatorKind::Conditional => write!(f, "?:"),
             POperatorKind::Divide => write!(f, "/"),
             POperatorKind::FunctionCall => write!(f, "CALL"),
             POperatorKind::Multiply => write!(f, "*"),
@@ -148,8 +151,15 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if let Some((operator, (_, r_bp))) = self.try_parse_infix_operator(min_binding_power) {
-                let rhs = self.parse_expression_pratt(r_bp)?;
-                lhs = PExpression::Cons(operator, vec![lhs, rhs]);
+                if operator.token_type() == &TokenType::QuestionMark {
+                    let mhs = self.parse_expression_pratt(r_bp)?;
+                    self.expect_token(TokenType::Colon)?;
+                    let rhs = self.parse_expression_pratt(r_bp)?;
+                    lhs = PExpression::Cons(operator, vec![lhs, mhs, rhs]);
+                } else {
+                    let rhs = self.parse_expression_pratt(r_bp)?;
+                    lhs = PExpression::Cons(operator, vec![lhs, rhs]);
+                }
 
                 continue;
             }
@@ -204,6 +214,9 @@ impl<'a> Parser<'a> {
         let (operator, (l_bp, r_bp)) = match token.token_type() {
             TokenType::Minus => Some((POperator::new(POperatorKind::Subtract, token), (3, 4))),
             TokenType::Plus => Some((POperator::new(POperatorKind::BinaryAdd, token), (3, 4))),
+            TokenType::QuestionMark => {
+                Some((POperator::new(POperatorKind::Conditional, token), (1, 2)))
+            }
             TokenType::Slash => Some((POperator::new(POperatorKind::Divide, token), (7, 8))),
             TokenType::Star => Some((POperator::new(POperatorKind::Multiply, token), (7, 8))),
             _ => None,
@@ -658,6 +671,15 @@ mod tests {
         let mut parser = Parser::new(Tokenizer::new(code));
         let tree = parser.parse_expression()?;
         assert_eq!(tree.to_string(), "CALL (foo a )");
+        Ok(())
+    }
+
+    #[test]
+    fn conditional_ternary<'a>() -> ParseResult<'a, ()> {
+        let code = "a ? b : c";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "?: (a b c )");
         Ok(())
     }
 }
