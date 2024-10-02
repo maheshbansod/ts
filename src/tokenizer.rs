@@ -21,6 +21,7 @@ pub enum TokenType {
     Minus,
     ParenthesisClose,
     ParenthesisOpen,
+    QuestionMark,
     Plus,
     Semicolon,
     Slash,
@@ -274,6 +275,9 @@ impl<'a> Tokenizer<'a> {
                 Some(self.match_token(it_clone, TokenType::Semicolon, first, first))
             }
             Some((first, ':')) => Some(self.match_token(it_clone, TokenType::Colon, first, first)),
+            Some((first, '?')) => {
+                Some(self.match_token(it_clone, TokenType::QuestionMark, first, first))
+            }
             Some((first, '.')) => {
                 self.merge_rest_in_token(it_clone, first, "..", TokenType::Destructure)
             }
@@ -735,7 +739,7 @@ x
 
     #[test]
     fn operators() {
-        let code = "+ - * / ; , : ... [ ] ++ --";
+        let code = "+ - * / ; , : ... [ ] ++ -- ?";
         let tokenizer = Tokenizer::new(code);
         let expected = vec![
             "Plus",
@@ -750,6 +754,7 @@ x
             "SquareBracketClose",
             "Increment",
             "Decrement",
+            "QuestionMark",
         ];
         let actual = tokenizer.map(|t| t.to_string()).collect::<Vec<_>>();
         assert_eq!(expected, actual);
