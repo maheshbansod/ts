@@ -13,6 +13,10 @@ things to do
 - [ ] Look at unexpected token cases and see if expected token cases can work better there.
 - [ ] BUG - why errors of multiple unexpected token for the same token
 
+### Macros
+
+- [ ] Make a macro to set priorities for operators automatically
+
 ## Non-application
 
 - [ ] use cargo-make or just or something
