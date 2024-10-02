@@ -16,9 +16,13 @@ pub(super) enum POperatorKind {
     /// The ?: operator
     Conditional,
     Divide,
+    /// == comparison operator
+    Equals,
     FunctionCall,
     Multiply,
     Negate,
+    Not,
+    NotEquals,
     PostIncrement,
     PreIncrement,
     Subscript,
@@ -76,9 +80,12 @@ impl<'a> Display for POperator<'a> {
             POperatorKind::BinaryAdd => write!(f, "+"),
             POperatorKind::Conditional => write!(f, "?:"),
             POperatorKind::Divide => write!(f, "/"),
+            POperatorKind::Equals => write!(f, "=="),
             POperatorKind::FunctionCall => write!(f, "CALL"),
             POperatorKind::Multiply => write!(f, "*"),
             POperatorKind::Negate | POperatorKind::Subtract => write!(f, "-"),
+            POperatorKind::Not => write!(f, "!"),
+            POperatorKind::NotEquals => write!(f, "!="),
             POperatorKind::PostIncrement | POperatorKind::PreIncrement => write!(f, "++"),
             POperatorKind::Subscript => write!(f, "[]"),
         }
@@ -212,8 +219,10 @@ impl<'a> Parser<'a> {
         let token = self.tokenizer.peek()?;
         let token = token.clone();
         let (operator, (l_bp, r_bp)) = match token.token_type() {
-            TokenType::Minus => Some((POperator::new(POperatorKind::Subtract, token), (3, 4))),
-            TokenType::Plus => Some((POperator::new(POperatorKind::BinaryAdd, token), (3, 4))),
+            TokenType::Equals => Some((POperator::new(POperatorKind::Equals, token), (3, 4))),
+            TokenType::NotEquals => Some((POperator::new(POperatorKind::NotEquals, token), (3, 4))),
+            TokenType::Minus => Some((POperator::new(POperatorKind::Subtract, token), (5, 6))),
+            TokenType::Plus => Some((POperator::new(POperatorKind::BinaryAdd, token), (5, 6))),
             TokenType::QuestionMark => {
                 Some((POperator::new(POperatorKind::Conditional, token), (1, 2)))
             }
@@ -252,6 +261,7 @@ impl<'a> Parser<'a> {
 
     const fn prefix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
+            TokenType::Exclamation => Ok(POperator::new(POperatorKind::Not, token)),
             TokenType::Increment => Ok(POperator::new(POperatorKind::PreIncrement, token)),
             TokenType::Minus => Ok(POperator::new(POperatorKind::Negate, token)),
             _ => Err(ParserError::UnexpectedToken(token)),
@@ -260,7 +270,8 @@ impl<'a> Parser<'a> {
 }
 const fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
     match token_type {
-        TokenType::Increment => Some(((), 10)),
+        TokenType::Exclamation => Some(((), 10)),
+        TokenType::Increment => Some(((), 12)),
         TokenType::Minus | TokenType::Plus => Some(((), 8)),
         _ => None,
     }
@@ -269,7 +280,7 @@ const fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
 const fn is_token_prefix_operator(token_type: &TokenType) -> bool {
     matches!(
         token_type,
-        TokenType::Increment | TokenType::Minus | TokenType::Plus
+        TokenType::Increment | TokenType::Minus | TokenType::Exclamation | TokenType::Plus
     )
 }
 
@@ -689,6 +700,33 @@ mod tests {
         let mut parser = Parser::new(Tokenizer::new(code));
         let tree = parser.parse_expression()?;
         assert_eq!(tree.to_string(), "?: (+ (4 3 ) - (3 * (2 4 ) ) c )");
+        Ok(())
+    }
+
+    #[test]
+    fn equals<'a>() -> ParseResult<'a, ()> {
+        let code = "4 == 3 ? true : false";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "?: (== (4 3 ) true false )");
+        Ok(())
+    }
+
+    #[test]
+    fn not_equals<'a>() -> ParseResult<'a, ()> {
+        let code = "4 != 3 ? true : false";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "?: (!= (4 3 ) true false )");
+        Ok(())
+    }
+
+    #[test]
+    fn not_operator<'a>() -> ParseResult<'a, ()> {
+        let code = "!0 ? 1 : 0";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "?: (! (0 ) 1 0 )");
         Ok(())
     }
 }
