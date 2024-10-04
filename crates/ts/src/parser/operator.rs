@@ -5,33 +5,20 @@ use macros::make_operators;
 use crate::tokenizer::{Token, TokenKind};
 
 make_operators!(
-    //     BinaryAdd,
     (infix, BinaryAdd, Plus, "+"),
     //     /// The ?: operator
-    //     Conditional,
     (infix, Conditional, QuestionMark, "?:"),
-    //     Divide,
     (infix, Divide, Slash, "/"),
     //     /// == comparison operator
-    //     Equals,
     (infix, Equals, Equals, "=="),
-    //     FunctionCall,
     (pre, FunctionCall, Unknown, "CALL"), // todo
-    //     Multiply,
     (infix, Multiply, Star, "*"),
-    //     Negate,
     (pre, Negate, Minus, "-"),
-    //     Not,
     (pre, Not, Exclamation, "!"),
-    //     NotEquals,
     (infix, NotEquals, NotEquals, "!="),
-    //     PostIncrement,
     (post, PostIncrement, Increment, "++"),
-    //     PreIncrement,
     (pre, PreIncrement, Increment, "++"),
-    //     Subscript,
     (infix, Subscript, SquareBracketOpen, "[]"),
-    //     Subtract,
     (infix, Subtract, Minus, "-"),
 );
 
@@ -59,17 +46,3 @@ impl<'a> Display for POperator<'a> {
         write!(f, "{}", self.kind())
     }
 }
-
-// match self.kind() {
-//     POperatorKind::BinaryAdd => write!(f, "+"),
-//     POperatorKind::Conditional => write!(f, "?:"),
-//     POperatorKind::Divide => write!(f, "/"),
-//     POperatorKind::Equals => write!(f, "=="),
-//     POperatorKind::FunctionCall => write!(f, "CALL"),
-//     POperatorKind::Multiply => write!(f, "*"),
-//     POperatorKind::Negate | POperatorKind::Subtract => write!(f, "-"),
-//     POperatorKind::Not => write!(f, "!"),
-//     POperatorKind::NotEquals => write!(f, "!="),
-//     POperatorKind::PostIncrement | POperatorKind::PreIncrement => write!(f, "++"),
-//     POperatorKind::Subscript => write!(f, "[]"),
-// }
