@@ -5,6 +5,7 @@ mod identifier;
 mod if_else;
 mod literal;
 mod object;
+mod operator;
 
 use std::{error::Error, fmt::Display, iter::Peekable};
 
@@ -393,11 +394,8 @@ fn parse_code(code: &str) -> ParseResult<'_, (ParseTree<'_>, Vec<ParserError<'_>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        parser::expression::POperator,
-        tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
-    };
-    use expression::POperatorKind;
+    use crate::tokenizer::{Token, TokenKind, TokenLocation, Tokenizer};
+    use operator::{POperator, POperatorKind};
     use pretty_assertions::assert_eq;
 
     #[test]

@@ -2,50 +2,15 @@ use std::fmt::Display;
 
 use crate::tokenizer::{Token, TokenKind};
 
-use super::{PAtom, PIdentifier, ParseResult, Parser, ParserError};
-
-#[derive(Debug, PartialEq)]
-pub(super) struct POperator<'a> {
-    kind: POperatorKind,
-    token: Token<'a>,
-}
-
-#[derive(Debug, PartialEq)]
-pub(super) enum POperatorKind {
-    BinaryAdd,
-    /// The ?: operator
-    Conditional,
-    Divide,
-    /// == comparison operator
-    Equals,
-    FunctionCall,
-    Multiply,
-    Negate,
-    Not,
-    NotEquals,
-    PostIncrement,
-    PreIncrement,
-    Subscript,
-    Subtract,
-}
+use super::{
+    operator::{POperator, POperatorKind},
+    PAtom, PIdentifier, ParseResult, Parser, ParserError,
+};
 
 #[derive(Debug, PartialEq)]
 pub(super) enum PExpression<'a> {
     Atom(PAtom<'a>),
     Cons(POperator<'a>, Vec<PExpression<'a>>),
-}
-
-impl<'a> POperator<'a> {
-    pub(super) const fn new(kind: POperatorKind, token: Token<'a>) -> Self {
-        Self { kind, token }
-    }
-    const fn token_type(&self) -> &TokenKind {
-        self.token.token_type()
-    }
-
-    const fn kind(&self) -> &POperatorKind {
-        &self.kind
-    }
 }
 
 impl<'a> Display for PExpression<'a> {
@@ -70,24 +35,6 @@ impl<'a> Display for PAtom<'a> {
             PAtom::ObjectLiteral(object) => write!(f, "{{{object}}}"),
             PAtom::Identifier(identifier) => write!(f, "{identifier}"),
             PAtom::Function(function) => write!(f, "{function}"),
-        }
-    }
-}
-
-impl<'a> Display for POperator<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.kind() {
-            POperatorKind::BinaryAdd => write!(f, "+"),
-            POperatorKind::Conditional => write!(f, "?:"),
-            POperatorKind::Divide => write!(f, "/"),
-            POperatorKind::Equals => write!(f, "=="),
-            POperatorKind::FunctionCall => write!(f, "CALL"),
-            POperatorKind::Multiply => write!(f, "*"),
-            POperatorKind::Negate | POperatorKind::Subtract => write!(f, "-"),
-            POperatorKind::Not => write!(f, "!"),
-            POperatorKind::NotEquals => write!(f, "!="),
-            POperatorKind::PostIncrement | POperatorKind::PreIncrement => write!(f, "++"),
-            POperatorKind::Subscript => write!(f, "[]"),
         }
     }
 }

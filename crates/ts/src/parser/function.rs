@@ -44,7 +44,7 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            expression::{POperator, POperatorKind},
+            operator::{POperator, POperatorKind},
             BindingType, PAtom, PExpression, PFunction, PIdentifier, PLiteralPrimitive, PStatement,
             ParseTree, ParseTreeRoot, Parser,
         },
