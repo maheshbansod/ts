@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::CharIndices};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TokenType {
+pub enum TokenKind {
     Assign,
     BraceClose,
     BraceOpen,
@@ -41,20 +41,20 @@ pub enum TokenType {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token<'a> {
     #[allow(clippy::struct_field_names)]
-    token_type: TokenType,
+    token_type: TokenKind,
     lexeme: &'a str,
     location: TokenLocation,
 }
 
 impl<'a> Token<'a> {
-    pub const fn new(token_type: TokenType, location: TokenLocation, lexeme: &'a str) -> Self {
+    pub const fn new(token_type: TokenKind, location: TokenLocation, lexeme: &'a str) -> Self {
         Token {
             token_type,
             lexeme,
             location,
         }
     }
-    pub const fn token_type(&self) -> &TokenType {
+    pub const fn token_type(&self) -> &TokenKind {
         &self.token_type
     }
     pub const fn lexeme(&self) -> &'a str {
@@ -181,7 +181,7 @@ impl<'a> Tokenizer<'a> {
     fn match_token(
         &mut self,
         it: CharIndices<'a>,
-        token_type: TokenType,
+        token_type: TokenKind,
         first: usize,
         last: usize,
     ) -> Token<'a> {
@@ -201,24 +201,24 @@ impl<'a> Tokenizer<'a> {
         let mut it_clone = self.char_indices.clone();
         match it_clone.next() {
             Some((first, 'c')) => {
-                self.merge_rest_in_token(it_clone, first, "onst", TokenType::Const)
+                self.merge_rest_in_token(it_clone, first, "onst", TokenKind::Const)
             }
-            Some((first, 'e')) => self.merge_rest_in_token(it_clone, first, "lse", TokenType::Else),
+            Some((first, 'e')) => self.merge_rest_in_token(it_clone, first, "lse", TokenKind::Else),
             Some((first, 'f')) => {
-                self.merge_rest_in_token(it_clone, first, "unction", TokenType::Function)
+                self.merge_rest_in_token(it_clone, first, "unction", TokenKind::Function)
             }
-            Some((first, 'i')) => self.merge_rest_in_token(it_clone, first, "f", TokenType::If),
+            Some((first, 'i')) => self.merge_rest_in_token(it_clone, first, "f", TokenKind::If),
             Some((first, 'l')) => match it_clone.next() {
                 Some((_, 'e')) => match it_clone.next() {
                     Some((last, 't')) => {
-                        return Some(self.match_token(it_clone, TokenType::Let, first, last));
+                        return Some(self.match_token(it_clone, TokenKind::Let, first, last));
                     }
                     _ => None,
                 },
                 _ => None,
             },
             Some((first, 'w')) => {
-                self.merge_rest_in_token(it_clone, first, "hile", TokenType::While)
+                self.merge_rest_in_token(it_clone, first, "hile", TokenKind::While)
             }
             _ => None,
         }
@@ -229,7 +229,7 @@ impl<'a> Tokenizer<'a> {
         mut it: CharIndices<'a>,
         first_index: usize,
         rest: &'b str,
-        token_type: TokenType,
+        token_type: TokenKind,
     ) -> Option<Token<'a>> {
         let mut last_index = first_index;
         for c in rest.chars() {
@@ -247,47 +247,47 @@ impl<'a> Tokenizer<'a> {
         let mut it_clone = self.char_indices.clone();
         match it_clone.next() {
             Some((first, '+')) => self
-                .merge_rest_in_token(it_clone.clone(), first, "+", TokenType::Increment)
-                .or_else(|| Some(self.match_token(it_clone, TokenType::Plus, first, first))),
-            Some((first, '*')) => Some(self.match_token(it_clone, TokenType::Star, first, first)),
-            Some((first, '/')) => Some(self.match_token(it_clone, TokenType::Slash, first, first)),
+                .merge_rest_in_token(it_clone.clone(), first, "+", TokenKind::Increment)
+                .or_else(|| Some(self.match_token(it_clone, TokenKind::Plus, first, first))),
+            Some((first, '*')) => Some(self.match_token(it_clone, TokenKind::Star, first, first)),
+            Some((first, '/')) => Some(self.match_token(it_clone, TokenKind::Slash, first, first)),
             Some((first, '-')) => self
-                .merge_rest_in_token(it_clone.clone(), first, "-", TokenType::Decrement)
-                .or_else(|| Some(self.match_token(it_clone, TokenType::Minus, first, first))),
+                .merge_rest_in_token(it_clone.clone(), first, "-", TokenKind::Decrement)
+                .or_else(|| Some(self.match_token(it_clone, TokenKind::Minus, first, first))),
             Some((first, '=')) => self
-                .merge_rest_in_token(it_clone.clone(), first, "=", TokenType::Equals)
-                .or_else(|| Some(self.match_token(it_clone, TokenType::Assign, first, first))),
+                .merge_rest_in_token(it_clone.clone(), first, "=", TokenKind::Equals)
+                .or_else(|| Some(self.match_token(it_clone, TokenKind::Assign, first, first))),
             Some((first, '!')) => self
-                .merge_rest_in_token(it_clone.clone(), first, "=", TokenType::NotEquals)
-                .or_else(|| Some(self.match_token(it_clone, TokenType::Exclamation, first, first))),
+                .merge_rest_in_token(it_clone.clone(), first, "=", TokenKind::NotEquals)
+                .or_else(|| Some(self.match_token(it_clone, TokenKind::Exclamation, first, first))),
             Some((first, '{')) => {
-                Some(self.match_token(it_clone, TokenType::BraceOpen, first, first))
+                Some(self.match_token(it_clone, TokenKind::BraceOpen, first, first))
             }
             Some((first, '}')) => {
-                Some(self.match_token(it_clone, TokenType::BraceClose, first, first))
+                Some(self.match_token(it_clone, TokenKind::BraceClose, first, first))
             }
             Some((first, '(')) => {
-                Some(self.match_token(it_clone, TokenType::ParenthesisOpen, first, first))
+                Some(self.match_token(it_clone, TokenKind::ParenthesisOpen, first, first))
             }
             Some((first, ')')) => {
-                Some(self.match_token(it_clone, TokenType::ParenthesisClose, first, first))
+                Some(self.match_token(it_clone, TokenKind::ParenthesisClose, first, first))
             }
             Some((first, '[')) => {
-                Some(self.match_token(it_clone, TokenType::SquareBracketOpen, first, first))
+                Some(self.match_token(it_clone, TokenKind::SquareBracketOpen, first, first))
             }
             Some((first, ']')) => {
-                Some(self.match_token(it_clone, TokenType::SquareBracketClose, first, first))
+                Some(self.match_token(it_clone, TokenKind::SquareBracketClose, first, first))
             }
-            Some((first, ',')) => Some(self.match_token(it_clone, TokenType::Comma, first, first)),
+            Some((first, ',')) => Some(self.match_token(it_clone, TokenKind::Comma, first, first)),
             Some((first, ';')) => {
-                Some(self.match_token(it_clone, TokenType::Semicolon, first, first))
+                Some(self.match_token(it_clone, TokenKind::Semicolon, first, first))
             }
-            Some((first, ':')) => Some(self.match_token(it_clone, TokenType::Colon, first, first)),
+            Some((first, ':')) => Some(self.match_token(it_clone, TokenKind::Colon, first, first)),
             Some((first, '?')) => {
-                Some(self.match_token(it_clone, TokenType::QuestionMark, first, first))
+                Some(self.match_token(it_clone, TokenKind::QuestionMark, first, first))
             }
             Some((first, '.')) => {
-                self.merge_rest_in_token(it_clone, first, "..", TokenType::Destructure)
+                self.merge_rest_in_token(it_clone, first, "..", TokenKind::Destructure)
             }
             _ => None,
         }
@@ -300,9 +300,9 @@ impl<'a> Tokenizer<'a> {
                 if let Some((_, last_index, it)) =
                     Tokenizer::consume_while_it(&it_clone, char::is_alphanumeric)
                 {
-                    return Some(self.match_token(it, TokenType::Identifier, first, last_index));
+                    return Some(self.match_token(it, TokenKind::Identifier, first, last_index));
                 }
-                return Some(self.match_token(it_clone, TokenType::Identifier, first, first));
+                return Some(self.match_token(it_clone, TokenKind::Identifier, first, first));
             }
             _ => None,
         }
@@ -312,7 +312,7 @@ impl<'a> Tokenizer<'a> {
         let mut it_clone = self.char_indices.clone();
         it_clone
             .next()
-            .map(|(i, _c)| self.match_token(it_clone, TokenType::Unknown, i, i))
+            .map(|(i, _c)| self.match_token(it_clone, TokenKind::Unknown, i, i))
     }
 
     fn try_consume_literal(&mut self) -> Option<Token<'a>> {
@@ -321,7 +321,7 @@ impl<'a> Tokenizer<'a> {
             Some((_, c)) if c.is_numeric() => {
                 let (first_index, last_index, it) =
                     Tokenizer::consume_while_it(&self.char_indices, char::is_numeric).unwrap();
-                Some(self.match_token(it, TokenType::Literal, first_index, last_index))
+                Some(self.match_token(it, TokenKind::Literal, first_index, last_index))
             }
             Some((first_index, c)) if is_quote(c) => {
                 let delimeter = quote_as_delimeter(c).expect("already checked above");
@@ -329,7 +329,7 @@ impl<'a> Tokenizer<'a> {
                 self.set_mode(TokenizationMode::String { delimeter });
                 Some(self.match_token(
                     self.char_indices.clone(),
-                    TokenType::StringLiteralStart,
+                    TokenKind::StringLiteralStart,
                     first_index,
                     first_index,
                 ))
@@ -342,13 +342,13 @@ impl<'a> Tokenizer<'a> {
         if let Some((first_index, last_index, it)) =
             Tokenizer::consume_while_it(&self.char_indices, |c| !is_quote(c))
         {
-            Some(self.match_token(it, TokenType::Literal, first_index, last_index))
+            Some(self.match_token(it, TokenKind::Literal, first_index, last_index))
         } else {
             let mut it_clone = self.char_indices.clone();
             if let Some((i, next_char)) = it_clone.next() {
                 if let Some(expected_delimeter) = quote_as_delimeter(next_char) {
                     if expected_delimeter == delimeter {
-                        let token = self.match_token(it_clone, TokenType::StringLiteralEnd, i, i);
+                        let token = self.match_token(it_clone, TokenKind::StringLiteralEnd, i, i);
                         self.pop_mode();
                         return Some(token);
                     }
@@ -406,7 +406,7 @@ mod tests {
     use crate::tokenizer::Tokenizer;
     use pretty_assertions::assert_eq;
 
-    use super::{Token, TokenLocation, TokenType};
+    use super::{Token, TokenKind, TokenLocation};
     #[test]
     fn it_should_tokenize() {
         let code = "
@@ -417,70 +417,70 @@ third = first + second;
         ";
 
         let tokens = vec![
-            (TokenType::Let, "let", TokenLocation { row: 2, column: 1 }),
+            (TokenKind::Let, "let", TokenLocation { row: 2, column: 1 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "first",
                 TokenLocation { row: 2, column: 5 },
             ),
-            (TokenType::Assign, "=", TokenLocation { row: 2, column: 11 }),
+            (TokenKind::Assign, "=", TokenLocation { row: 2, column: 11 }),
             (
-                TokenType::Literal,
+                TokenKind::Literal,
                 "30",
                 TokenLocation { row: 2, column: 13 },
             ),
             (
-                TokenType::Semicolon,
+                TokenKind::Semicolon,
                 ";",
                 TokenLocation { row: 2, column: 15 },
             ),
-            (TokenType::Let, "let", TokenLocation { row: 3, column: 1 }),
+            (TokenKind::Let, "let", TokenLocation { row: 3, column: 1 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "second",
                 TokenLocation { row: 3, column: 5 },
             ),
-            (TokenType::Assign, "=", TokenLocation { row: 3, column: 12 }),
+            (TokenKind::Assign, "=", TokenLocation { row: 3, column: 12 }),
             (
-                TokenType::Literal,
+                TokenKind::Literal,
                 "40",
                 TokenLocation { row: 3, column: 14 },
             ),
             (
-                TokenType::Semicolon,
+                TokenKind::Semicolon,
                 ";",
                 TokenLocation { row: 3, column: 16 },
             ),
-            (TokenType::Let, "let", TokenLocation { row: 4, column: 1 }),
+            (TokenKind::Let, "let", TokenLocation { row: 4, column: 1 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "third",
                 TokenLocation { row: 4, column: 5 },
             ),
             (
-                TokenType::Semicolon,
+                TokenKind::Semicolon,
                 ";",
                 TokenLocation { row: 4, column: 10 },
             ),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "third",
                 TokenLocation { row: 5, column: 1 },
             ),
-            (TokenType::Assign, "=", TokenLocation { row: 5, column: 7 }),
+            (TokenKind::Assign, "=", TokenLocation { row: 5, column: 7 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "first",
                 TokenLocation { row: 5, column: 9 },
             ),
-            (TokenType::Plus, "+", TokenLocation { row: 5, column: 15 }),
+            (TokenKind::Plus, "+", TokenLocation { row: 5, column: 15 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "second",
                 TokenLocation { row: 5, column: 17 },
             ),
             (
-                TokenType::Semicolon,
+                TokenKind::Semicolon,
                 ";",
                 TokenLocation { row: 5, column: 23 },
             ),
@@ -503,13 +503,13 @@ third = first + second;
         let mut tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(
-                TokenType::StringLiteralStart,
+                TokenKind::StringLiteralStart,
                 TokenLocation { row: 1, column: 1 },
                 "'",
             ),
-            Token::new(TokenType::Literal, TokenLocation { row: 1, column: 2 }, "1"),
+            Token::new(TokenKind::Literal, TokenLocation { row: 1, column: 2 }, "1"),
             Token::new(
-                TokenType::StringLiteralEnd,
+                TokenKind::StringLiteralEnd,
                 TokenLocation { row: 1, column: 3 },
                 "'",
             ),
@@ -521,17 +521,17 @@ third = first + second;
         let mut tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(
-                TokenType::StringLiteralStart,
+                TokenKind::StringLiteralStart,
                 TokenLocation { row: 1, column: 1 },
                 "\"",
             ),
             Token::new(
-                TokenType::Literal,
+                TokenKind::Literal,
                 TokenLocation { row: 1, column: 2 },
                 "1 abcd let const lets go",
             ),
             Token::new(
-                TokenType::StringLiteralEnd,
+                TokenKind::StringLiteralEnd,
                 TokenLocation { row: 1, column: 26 },
                 "\"",
             ),
@@ -547,12 +547,12 @@ third = first + second;
         let mut tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(
-                TokenType::StringLiteralStart,
+                TokenKind::StringLiteralStart,
                 TokenLocation { row: 1, column: 1 },
                 "'",
             ),
             Token::new(
-                TokenType::StringLiteralEnd,
+                TokenKind::StringLiteralEnd,
                 TokenLocation { row: 1, column: 2 },
                 "'",
             ),
@@ -567,7 +567,7 @@ third = first + second;
         let code = "1";
         let mut tokenizer = Tokenizer::new(code);
         let next = tokenizer.next().expect("Literal exists");
-        let expected = Token::new(TokenType::Literal, TokenLocation { row: 1, column: 1 }, "1");
+        let expected = Token::new(TokenKind::Literal, TokenLocation { row: 1, column: 1 }, "1");
 
         assert_eq!(expected, next);
     }
@@ -576,10 +576,10 @@ third = first + second;
     fn minus() {
         let mut tokenizer = Tokenizer::new("-1");
         let output = tokenizer.next().expect("should exis");
-        let expected = Token::new(TokenType::Minus, TokenLocation { row: 1, column: 1 }, "-");
+        let expected = Token::new(TokenKind::Minus, TokenLocation { row: 1, column: 1 }, "-");
         assert_eq!(output, expected);
         let output = tokenizer.next().expect("should exis");
-        let expected = Token::new(TokenType::Literal, TokenLocation { row: 1, column: 2 }, "1");
+        let expected = Token::new(TokenKind::Literal, TokenLocation { row: 1, column: 2 }, "1");
         assert_eq!(output, expected);
     }
 
@@ -589,7 +589,7 @@ third = first + second;
         let mut tokenizer = Tokenizer::new(code);
         let next = tokenizer.next().expect("Identifier exists");
         let expected = Token::new(
-            TokenType::Identifier,
+            TokenKind::Identifier,
             TokenLocation { row: 1, column: 1 },
             "ident",
         );
@@ -604,7 +604,7 @@ third = first + second;
 
         let mut tokenizer = Tokenizer::new(code);
         let next = tokenizer.next().expect("Literal exists");
-        let expected = Token::new(TokenType::Literal, TokenLocation { row: 3, column: 4 }, "1");
+        let expected = Token::new(TokenKind::Literal, TokenLocation { row: 3, column: 4 }, "1");
 
         assert_eq!(expected, next);
     }
@@ -620,70 +620,70 @@ let second = 40;
         ";
 
         let tokens = vec![
-            (TokenType::Let, "let", TokenLocation { row: 2, column: 4 }),
+            (TokenKind::Let, "let", TokenLocation { row: 2, column: 4 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "first",
                 TokenLocation { row: 2, column: 8 },
             ),
-            (TokenType::Assign, "=", TokenLocation { row: 2, column: 14 }),
+            (TokenKind::Assign, "=", TokenLocation { row: 2, column: 14 }),
             (
-                TokenType::Literal,
+                TokenKind::Literal,
                 "30",
                 TokenLocation { row: 2, column: 16 },
             ),
             (
-                TokenType::Semicolon,
+                TokenKind::Semicolon,
                 ";",
                 TokenLocation { row: 2, column: 18 },
             ),
-            (TokenType::Let, "let", TokenLocation { row: 3, column: 1 }),
+            (TokenKind::Let, "let", TokenLocation { row: 3, column: 1 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "second",
                 TokenLocation { row: 3, column: 5 },
             ),
-            (TokenType::Assign, "=", TokenLocation { row: 3, column: 12 }),
+            (TokenKind::Assign, "=", TokenLocation { row: 3, column: 12 }),
             (
-                TokenType::Literal,
+                TokenKind::Literal,
                 "40",
                 TokenLocation { row: 3, column: 14 },
             ),
             (
-                TokenType::Semicolon,
+                TokenKind::Semicolon,
                 ";",
                 TokenLocation { row: 3, column: 16 },
             ),
-            (TokenType::Let, "let", TokenLocation { row: 5, column: 5 }),
+            (TokenKind::Let, "let", TokenLocation { row: 5, column: 5 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "third",
                 TokenLocation { row: 5, column: 9 },
             ),
             (
-                TokenType::Semicolon,
+                TokenKind::Semicolon,
                 ";",
                 TokenLocation { row: 5, column: 14 },
             ),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "third",
                 TokenLocation { row: 6, column: 5 },
             ),
-            (TokenType::Assign, "=", TokenLocation { row: 6, column: 11 }),
+            (TokenKind::Assign, "=", TokenLocation { row: 6, column: 11 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "first",
                 TokenLocation { row: 6, column: 13 },
             ),
-            (TokenType::Plus, "+", TokenLocation { row: 6, column: 19 }),
+            (TokenKind::Plus, "+", TokenLocation { row: 6, column: 19 }),
             (
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 "second",
                 TokenLocation { row: 6, column: 21 },
             ),
             (
-                TokenType::Semicolon,
+                TokenKind::Semicolon,
                 ";",
                 TokenLocation { row: 6, column: 27 },
             ),
@@ -711,33 +711,33 @@ x
         let tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(
-                TokenType::BraceOpen,
+                TokenKind::BraceOpen,
                 TokenLocation { row: 2, column: 9 },
                 "{",
             ),
             Token::new(
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 TokenLocation { row: 3, column: 1 },
                 "x",
             ),
-            Token::new(TokenType::Plus, TokenLocation { row: 3, column: 3 }, "+"),
+            Token::new(TokenKind::Plus, TokenLocation { row: 3, column: 3 }, "+"),
             Token::new(
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 TokenLocation { row: 3, column: 5 },
                 "y",
             ),
             Token::new(
-                TokenType::Semicolon,
+                TokenKind::Semicolon,
                 TokenLocation { row: 3, column: 6 },
                 ";",
             ),
             Token::new(
-                TokenType::BraceClose,
+                TokenKind::BraceClose,
                 TokenLocation { row: 4, column: 9 },
                 "}",
             ),
             Token::new(
-                TokenType::Identifier,
+                TokenKind::Identifier,
                 TokenLocation { row: 5, column: 1 },
                 "x",
             ),
@@ -776,25 +776,25 @@ x
         let code = "let function const if else while";
         let tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
-            Token::new(TokenType::Let, TokenLocation { row: 1, column: 1 }, "let"),
+            Token::new(TokenKind::Let, TokenLocation { row: 1, column: 1 }, "let"),
             Token::new(
-                TokenType::Function,
+                TokenKind::Function,
                 TokenLocation { row: 1, column: 5 },
                 "function",
             ),
             Token::new(
-                TokenType::Const,
+                TokenKind::Const,
                 TokenLocation { row: 1, column: 14 },
                 "const",
             ),
-            Token::new(TokenType::If, TokenLocation { row: 1, column: 20 }, "if"),
+            Token::new(TokenKind::If, TokenLocation { row: 1, column: 20 }, "if"),
             Token::new(
-                TokenType::Else,
+                TokenKind::Else,
                 TokenLocation { row: 1, column: 23 },
                 "else",
             ),
             Token::new(
-                TokenType::While,
+                TokenKind::While,
                 TokenLocation { row: 1, column: 28 },
                 "while",
             ),

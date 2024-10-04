@@ -1,12 +1,12 @@
-use crate::tokenizer::TokenType;
+use crate::tokenizer::TokenKind;
 
 use super::{PKeyValue, PObject, PObjectEntry, PObjectKey, ParseResult, Parser};
 
 impl<'a> Parser<'a> {
     pub(super) fn parse_object(&mut self) -> ParseResult<'a, PObject<'a>> {
         let entries = self.object_entries()?;
-        self.expect_token(TokenType::BraceClose)?;
-        let _ = self.expect_token(TokenType::Comma);
+        self.expect_token(TokenKind::BraceClose)?;
+        let _ = self.expect_token(TokenKind::Comma);
         let object = PObject { entries };
         Ok(object)
     }
@@ -14,7 +14,7 @@ impl<'a> Parser<'a> {
     fn object_entries(&mut self) -> ParseResult<'a, Vec<PObjectEntry<'a>>> {
         let mut object_entries = vec![];
         loop {
-            if self.expect_token(TokenType::Destructure).is_ok() {
+            if self.expect_token(TokenKind::Destructure).is_ok() {
                 let expression = self.parse_expression()?;
                 let expression = PObjectEntry::Destructure(expression);
                 object_entries.push(expression);
@@ -23,8 +23,8 @@ impl<'a> Parser<'a> {
                 let key_value = PObjectEntry::KeyValue(key_value);
                 object_entries.push(key_value);
             }
-            if self.expect_token(TokenType::Comma).is_err()
-                || self.is_next_token(&TokenType::BraceClose)
+            if self.expect_token(TokenKind::Comma).is_err()
+                || self.is_next_token(&TokenKind::BraceClose)
             {
                 break;
             }
@@ -33,9 +33,9 @@ impl<'a> Parser<'a> {
     }
 
     fn key_value(&mut self) -> ParseResult<'a, PKeyValue<'a>> {
-        let key = if self.expect_token(TokenType::SquareBracketOpen).is_ok() {
+        let key = if self.expect_token(TokenKind::SquareBracketOpen).is_ok() {
             let expression = self.parse_expression()?;
-            self.expect_token(TokenType::SquareBracketClose)?;
+            self.expect_token(TokenKind::SquareBracketClose)?;
             PObjectKey::Expression(expression)
         } else if let Ok(literal) = self.expect_literal_primitive() {
             PObjectKey::Literal(literal)
@@ -43,7 +43,7 @@ impl<'a> Parser<'a> {
             let identifier = self.parse_identifier()?;
             PObjectKey::Identifier(identifier)
         };
-        self.expect_token(TokenType::Colon)?;
+        self.expect_token(TokenKind::Colon)?;
         let expression = self.parse_expression()?;
         Ok(PKeyValue {
             key,
@@ -59,7 +59,7 @@ mod tests {
             parse_code, BindingType, PAtom, PExpression, PIdentifier, PKeyValue, PLiteralPrimitive,
             PObject, PObjectEntry, PObjectKey, PStatement, ParseResult, ParseTree, ParseTreeRoot,
         },
-        tokenizer::{Token, TokenLocation, TokenType},
+        tokenizer::{Token, TokenKind, TokenLocation},
     };
     use pretty_assertions::assert_eq;
 
@@ -79,7 +79,7 @@ let code = {
                     binding_type: BindingType::Let,
                     identifier: PIdentifier {
                         token: Token::new(
-                            TokenType::Identifier,
+                            TokenKind::Identifier,
                             TokenLocation { row: 2, column: 5 },
                             "code",
                         ),
@@ -88,7 +88,7 @@ let code = {
                         entries: vec![PObjectEntry::KeyValue(PKeyValue {
                             key: PObjectKey::Identifier(PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 3, column: 5 },
                                     "a",
                                 ),
@@ -96,7 +96,7 @@ let code = {
                             value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 1.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 3, column: 8 },
                                     "1",
                                 ),
@@ -128,7 +128,7 @@ let code = {
                     binding_type: BindingType::Let,
                     identifier: PIdentifier {
                         token: Token::new(
-                            TokenType::Identifier,
+                            TokenKind::Identifier,
                             TokenLocation { row: 2, column: 5 },
                             "code",
                         ),
@@ -138,7 +138,7 @@ let code = {
                             PObjectEntry::KeyValue(PKeyValue {
                                 key: PObjectKey::Identifier(PIdentifier {
                                     token: Token::new(
-                                        TokenType::Identifier,
+                                        TokenKind::Identifier,
                                         TokenLocation { row: 3, column: 5 },
                                         "a",
                                     ),
@@ -147,7 +147,7 @@ let code = {
                                     PLiteralPrimitive::Number {
                                         value: 1.0,
                                         token: Token::new(
-                                            TokenType::Literal,
+                                            TokenKind::Literal,
                                             TokenLocation { row: 3, column: 8 },
                                             "1",
                                         ),
@@ -157,7 +157,7 @@ let code = {
                             PObjectEntry::KeyValue(PKeyValue {
                                 key: PObjectKey::Identifier(PIdentifier {
                                     token: Token::new(
-                                        TokenType::Identifier,
+                                        TokenKind::Identifier,
                                         TokenLocation { row: 4, column: 5 },
                                         "b",
                                     ),
@@ -166,7 +166,7 @@ let code = {
                                     PLiteralPrimitive::Number {
                                         value: 3.0,
                                         token: Token::new(
-                                            TokenType::Literal,
+                                            TokenKind::Literal,
                                             TokenLocation { row: 4, column: 8 },
                                             "3",
                                         ),
@@ -199,7 +199,7 @@ let code = {
                     binding_type: BindingType::Let,
                     identifier: PIdentifier {
                         token: Token::new(
-                            TokenType::Identifier,
+                            TokenKind::Identifier,
                             TokenLocation { row: 2, column: 5 },
                             "code",
                         ),
@@ -208,7 +208,7 @@ let code = {
                         entries: vec![PObjectEntry::KeyValue(PKeyValue {
                             key: PObjectKey::Identifier(PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 3, column: 5 },
                                     "a",
                                 ),
@@ -216,7 +216,7 @@ let code = {
                             value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 1.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 3, column: 8 },
                                     "1",
                                 ),
@@ -247,7 +247,7 @@ let code = {
                     binding_type: BindingType::Let,
                     identifier: PIdentifier {
                         token: Token::new(
-                            TokenType::Identifier,
+                            TokenKind::Identifier,
                             TokenLocation { row: 2, column: 5 },
                             "code",
                         ),
@@ -256,7 +256,7 @@ let code = {
                         entries: vec![PObjectEntry::Destructure(PExpression::Atom(
                             PAtom::Identifier(PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 3, column: 8 },
                                     "test",
                                 ),
@@ -287,7 +287,7 @@ let code = {
                     binding_type: BindingType::Let,
                     identifier: PIdentifier {
                         token: Token::new(
-                            TokenType::Identifier,
+                            TokenKind::Identifier,
                             TokenLocation { row: 2, column: 5 },
                             "code",
                         ),
@@ -297,18 +297,18 @@ let code = {
                             key: PObjectKey::Expression(PExpression::Atom(PAtom::Literal(
                                 PLiteralPrimitive::String {
                                     value_token: Some(Token::new(
-                                        TokenType::Literal,
+                                        TokenKind::Literal,
                                         TokenLocation { row: 3, column: 7 },
                                         "key",
                                     )),
                                     value: "key",
                                     start_delim: Token::new(
-                                        TokenType::StringLiteralStart,
+                                        TokenKind::StringLiteralStart,
                                         TokenLocation { row: 3, column: 6 },
                                         "'",
                                     ),
                                     end_delim: Token::new(
-                                        TokenType::StringLiteralEnd,
+                                        TokenKind::StringLiteralEnd,
                                         TokenLocation { row: 3, column: 10 },
                                         "'",
                                     ),
@@ -317,7 +317,7 @@ let code = {
                             value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 1.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 3, column: 14 },
                                     "1",
                                 ),
@@ -348,7 +348,7 @@ let code = {
                     binding_type: BindingType::Let,
                     identifier: PIdentifier {
                         token: Token::new(
-                            TokenType::Identifier,
+                            TokenKind::Identifier,
                             TokenLocation { row: 2, column: 5 },
                             "code",
                         ),
@@ -359,7 +359,7 @@ let code = {
                             value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 1.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 3, column: 12 },
                                     "1",
                                 ),

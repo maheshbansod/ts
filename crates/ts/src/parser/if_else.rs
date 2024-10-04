@@ -1,13 +1,13 @@
-use crate::tokenizer::TokenType;
+use crate::tokenizer::TokenKind;
 
 use super::{PIfElseStatement, PIfStatement, ParseResult, Parser, ParserError};
 
 impl<'a> Parser<'a> {
     fn parse_if(&mut self) -> ParseResult<'a, (PIfStatement<'a>, Vec<ParserError<'a>>)> {
         let mut errors = vec![];
-        self.expect_token(TokenType::ParenthesisOpen)?;
+        self.expect_token(TokenKind::ParenthesisOpen)?;
         let condition = self.parse_expression()?;
-        self.expect_token(TokenType::ParenthesisClose)?;
+        self.expect_token(TokenKind::ParenthesisClose)?;
         let (body, mut body_errors) = self.parse_statement()?;
         errors.append(&mut body_errors);
         let statement = PIfStatement {
@@ -25,8 +25,8 @@ impl<'a> Parser<'a> {
         let mut else_if_statements = vec![];
         let mut else_body = None;
 
-        while self.expect_token(TokenType::Else).is_ok() {
-            if self.expect_token(TokenType::If).is_ok() {
+        while self.expect_token(TokenKind::Else).is_ok() {
+            if self.expect_token(TokenKind::If).is_ok() {
                 let (if_statement, mut else_if_errors) = self.parse_if()?;
                 else_if_statements.push(if_statement);
                 errors.append(&mut else_if_errors);
@@ -55,7 +55,7 @@ mod tests {
             parse_code, PAtom, PExpression, PIdentifier, PIfElseStatement, PIfStatement,
             PLiteralPrimitive, PStatement, ParseResult, ParseTree, ParseTreeRoot, Parser,
         },
-        tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
+        tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
     };
     use pretty_assertions::assert_eq;
 
@@ -78,7 +78,7 @@ x
                                 PLiteralPrimitive::Number {
                                     value: 1.0,
                                     token: Token::new(
-                                        TokenType::Literal,
+                                        TokenKind::Literal,
                                         TokenLocation { row: 2, column: 5 },
                                         "1",
                                     ),
@@ -88,7 +88,7 @@ x
                                 statements: vec![PStatement::Expression {
                                     expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
                                         token: Token::new(
-                                            TokenType::Identifier,
+                                            TokenKind::Identifier,
                                             TokenLocation { row: 3, column: 1 },
                                             "x",
                                         ),
@@ -128,7 +128,7 @@ y
                                 PLiteralPrimitive::Number {
                                     value: 1.0,
                                     token: Token::new(
-                                        TokenType::Literal,
+                                        TokenKind::Literal,
                                         TokenLocation { row: 2, column: 5 },
                                         "1",
                                     ),
@@ -138,7 +138,7 @@ y
                                 statements: vec![PStatement::Expression {
                                     expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
                                         token: Token::new(
-                                            TokenType::Identifier,
+                                            TokenKind::Identifier,
                                             TokenLocation { row: 3, column: 1 },
                                             "x",
                                         ),
@@ -151,7 +151,7 @@ y
                                 PLiteralPrimitive::Number {
                                     value: 0.0,
                                     token: Token::new(
-                                        TokenType::Literal,
+                                        TokenKind::Literal,
                                         TokenLocation { row: 4, column: 12 },
                                         "0",
                                     ),
@@ -163,7 +163,7 @@ y
                             statements: vec![PStatement::Expression {
                                 expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
                                     token: Token::new(
-                                        TokenType::Identifier,
+                                        TokenKind::Identifier,
                                         TokenLocation { row: 6, column: 1 },
                                         "y",
                                     ),
@@ -189,7 +189,7 @@ y
                         if_statement: PIfStatement {
                             condition: PExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 1, column: 5 },
                                     "true",
                                 ),
@@ -199,7 +199,7 @@ y
                                     PLiteralPrimitive::Number {
                                         value: 1.0,
                                         token: Token::new(
-                                            TokenType::Literal,
+                                            TokenKind::Literal,
                                             TokenLocation { row: 1, column: 11 },
                                             "1",
                                         ),
@@ -213,7 +213,7 @@ y
                                 PLiteralPrimitive::Number {
                                     value: 0.0,
                                     token: Token::new(
-                                        TokenType::Literal,
+                                        TokenKind::Literal,
                                         TokenLocation { row: 1, column: 18 },
                                         "0",
                                     ),

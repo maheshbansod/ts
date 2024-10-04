@@ -1,4 +1,4 @@
-use crate::tokenizer::TokenType;
+use crate::tokenizer::TokenKind;
 
 use super::{BindingType, PStatement, ParseResult, Parser};
 
@@ -12,7 +12,7 @@ impl<'a> Parser<'a> {
         self.tokenizer.next();
         let identifier = self.parse_identifier()?;
         let value = {
-            if self.expect_token(TokenType::Assign).is_ok() {
+            if self.expect_token(TokenKind::Assign).is_ok() {
                 Some(self.parse_expression()?)
             } else {
                 None
@@ -33,7 +33,7 @@ mod tests {
 
     use crate::{
         parser::{BindingType, PIdentifier, PStatement, ParseTree, ParseTreeRoot, Parser},
-        tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
+        tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
     };
 
     #[test]
@@ -53,7 +53,7 @@ const y;
                         binding_type: BindingType::Let,
                         identifier: PIdentifier {
                             token: Token::new(
-                                TokenType::Identifier,
+                                TokenKind::Identifier,
                                 TokenLocation { row: 2, column: 5 },
                                 "x",
                             ),
@@ -64,7 +64,7 @@ const y;
                         binding_type: BindingType::Const,
                         identifier: PIdentifier {
                             token: Token::new(
-                                TokenType::Identifier,
+                                TokenKind::Identifier,
                                 TokenLocation { row: 3, column: 7 },
                                 "y",
                             ),

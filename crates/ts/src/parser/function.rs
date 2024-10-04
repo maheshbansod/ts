@@ -1,4 +1,4 @@
-use crate::tokenizer::TokenType;
+use crate::tokenizer::TokenKind;
 
 use super::{PFunction, ParseResult, Parser, ParserError};
 
@@ -8,7 +8,7 @@ impl<'a> Parser<'a> {
     ) -> ParseResult<'a, (PFunction<'a>, Vec<ParserError<'a>>)> {
         // todo - we need to make identifier compulsary for function statements i think.
         let identifier = self.parse_identifier().ok();
-        self.expect_token(TokenType::ParenthesisOpen)?;
+        self.expect_token(TokenKind::ParenthesisOpen)?;
         let mut args = vec![];
         loop {
             match self.parse_identifier() {
@@ -16,18 +16,18 @@ impl<'a> Parser<'a> {
                     args.push(identifier);
                 }
                 Err(_e) => {
-                    self.expect_token(TokenType::ParenthesisClose)?;
+                    self.expect_token(TokenKind::ParenthesisClose)?;
                     break;
                 }
             }
             let token = self
-                .expect_token(TokenType::Comma)
-                .or_else(|_| self.expect_token(TokenType::ParenthesisClose))?;
-            if token.token_type() == &TokenType::ParenthesisClose {
+                .expect_token(TokenKind::Comma)
+                .or_else(|_| self.expect_token(TokenKind::ParenthesisClose))?;
+            if token.token_type() == &TokenKind::ParenthesisClose {
                 break;
             }
         }
-        self.expect_token(TokenType::BraceOpen)?;
+        self.expect_token(TokenKind::BraceOpen)?;
         let (statements, errors) = self.parse_block_statements(true)?;
         Ok((
             PFunction {
@@ -48,7 +48,7 @@ mod tests {
             BindingType, PAtom, PExpression, PFunction, PIdentifier, PLiteralPrimitive, PStatement,
             ParseTree, ParseTreeRoot, Parser,
         },
-        tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
+        tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
     };
 
     #[test]
@@ -68,7 +68,7 @@ let y = x+1;
                     expression: PExpression::Atom(PAtom::Function(PFunction {
                         identifier: Some(PIdentifier {
                             token: Token::new(
-                                TokenType::Identifier,
+                                TokenKind::Identifier,
                                 TokenLocation { row: 2, column: 18 },
                                 "f",
                             ),
@@ -78,7 +78,7 @@ let y = x+1;
                             binding_type: BindingType::Let,
                             identifier: PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 3, column: 5 },
                                     "y",
                                 ),
@@ -87,7 +87,7 @@ let y = x+1;
                                 POperator::new(
                                     POperatorKind::BinaryAdd,
                                     Token::new(
-                                        TokenType::Plus,
+                                        TokenKind::Plus,
                                         TokenLocation { row: 3, column: 10 },
                                         "+",
                                     ),
@@ -95,7 +95,7 @@ let y = x+1;
                                 vec![
                                     PExpression::Atom(PAtom::Identifier(PIdentifier {
                                         token: Token::new(
-                                            TokenType::Identifier,
+                                            TokenKind::Identifier,
                                             TokenLocation { row: 3, column: 9 },
                                             "x",
                                         ),
@@ -103,7 +103,7 @@ let y = x+1;
                                     PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                         value: 1.0,
                                         token: Token::new(
-                                            TokenType::Literal,
+                                            TokenKind::Literal,
                                             TokenLocation { row: 3, column: 11 },
                                             "1",
                                         ),
@@ -133,7 +133,7 @@ let x = function () {};
                     binding_type: BindingType::Let,
                     identifier: PIdentifier {
                         token: Token::new(
-                            TokenType::Identifier,
+                            TokenKind::Identifier,
                             TokenLocation { row: 2, column: 5 },
                             "x",
                         ),
@@ -164,7 +164,7 @@ function foo(arg1, arg2) {}
                     expression: PExpression::Atom(PAtom::Function(PFunction {
                         identifier: Some(PIdentifier {
                             token: Token::new(
-                                TokenType::Identifier,
+                                TokenKind::Identifier,
                                 TokenLocation { row: 2, column: 10 },
                                 "foo",
                             ),
@@ -172,14 +172,14 @@ function foo(arg1, arg2) {}
                         arguments: vec![
                             PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 2, column: 14 },
                                     "arg1",
                                 ),
                             },
                             PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 2, column: 20 },
                                     "arg2",
                                 ),

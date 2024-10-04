@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::tokenizer::{Token, TokenType};
+use crate::tokenizer::{Token, TokenKind};
 
 use super::{PAtom, PIdentifier, ParseResult, Parser, ParserError};
 
@@ -39,7 +39,7 @@ impl<'a> POperator<'a> {
     pub(super) const fn new(kind: POperatorKind, token: Token<'a>) -> Self {
         Self { kind, token }
     }
-    const fn token_type(&self) -> &TokenType {
+    const fn token_type(&self) -> &TokenKind {
         self.token.token_type()
     }
 
@@ -115,9 +115,9 @@ impl<'a> Parser<'a> {
             }
         } else if let (Some(atom), _errors) = self.try_parse_atom()? {
             PExpression::Atom(atom)
-        } else if self.expect_token(TokenType::ParenthesisOpen).is_ok() {
+        } else if self.expect_token(TokenKind::ParenthesisOpen).is_ok() {
             let expression = self.parse_expression()?;
-            self.expect_token(TokenType::ParenthesisClose)?;
+            self.expect_token(TokenKind::ParenthesisClose)?;
             expression
         } else {
             let token = self.tokenizer.peek().unwrap().clone();
@@ -131,7 +131,7 @@ impl<'a> Parser<'a> {
             }
             let op_token = op_token.unwrap();
 
-            if op_token.token_type() == &TokenType::ParenthesisOpen {
+            if op_token.token_type() == &TokenKind::ParenthesisOpen {
                 // function call
                 let op_token = self.tokenizer.next().unwrap();
                 let mut args = vec![];
@@ -139,13 +139,13 @@ impl<'a> Parser<'a> {
                 loop {
                     if let Ok(expression) = self.parse_expression() {
                         args.push(expression);
-                        if self.expect_token(TokenType::Comma).is_err() {
-                            self.expect_token(TokenType::ParenthesisClose)?;
+                        if self.expect_token(TokenKind::Comma).is_err() {
+                            self.expect_token(TokenKind::ParenthesisClose)?;
 
                             break;
                         }
                     } else {
-                        self.expect_token(TokenType::ParenthesisClose)?;
+                        self.expect_token(TokenKind::ParenthesisClose)?;
                         break;
                     }
                 }
@@ -158,9 +158,9 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if let Some((operator, (_, r_bp))) = self.try_parse_infix_operator(min_binding_power) {
-                if operator.token_type() == &TokenType::QuestionMark {
+                if operator.token_type() == &TokenKind::QuestionMark {
                     let mhs = self.parse_expression_pratt(r_bp)?;
-                    self.expect_token(TokenType::Colon)?;
+                    self.expect_token(TokenKind::Colon)?;
                     let rhs = self.parse_expression_pratt(r_bp)?;
                     lhs = PExpression::Cons(operator, vec![lhs, mhs, rhs]);
                 } else {
@@ -173,10 +173,10 @@ impl<'a> Parser<'a> {
             if let Some((operator, (_l_bp, _r_bp))) =
                 self.try_parse_postfix_operator(min_binding_power)
             {
-                if operator.token_type() == &TokenType::SquareBracketOpen {
+                if operator.token_type() == &TokenKind::SquareBracketOpen {
                     // subscript operator []
                     let expression = self.parse_expression()?;
-                    self.expect_token(TokenType::SquareBracketClose)?;
+                    self.expect_token(TokenKind::SquareBracketClose)?;
                     lhs = PExpression::Cons(operator, vec![lhs, expression]);
                 } else {
                     lhs = PExpression::Cons(operator, vec![lhs]);
@@ -194,16 +194,16 @@ impl<'a> Parser<'a> {
             Ok((Some(PAtom::Literal(literal)), vec![]))
         } else if let Some(token) = self.tokenizer.peek() {
             match token.token_type() {
-                TokenType::Function => {
+                TokenKind::Function => {
                     self.tokenizer.next();
                     let (function, errors) = self.parse_function()?;
                     Ok((Some(PAtom::Function(function)), errors))
                 }
-                TokenType::Identifier => {
+                TokenKind::Identifier => {
                     let token = self.tokenizer.next().unwrap();
                     Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![]))
                 }
-                TokenType::BraceOpen => {
+                TokenKind::BraceOpen => {
                     self.tokenizer.next();
                     let object = self.parse_object()?;
                     Ok((Some(PAtom::ObjectLiteral(object)), vec![]))
@@ -219,15 +219,15 @@ impl<'a> Parser<'a> {
         let token = self.tokenizer.peek()?;
         let token = token.clone();
         let (operator, (l_bp, r_bp)) = match token.token_type() {
-            TokenType::Equals => Some((POperator::new(POperatorKind::Equals, token), (3, 4))),
-            TokenType::NotEquals => Some((POperator::new(POperatorKind::NotEquals, token), (3, 4))),
-            TokenType::Minus => Some((POperator::new(POperatorKind::Subtract, token), (5, 6))),
-            TokenType::Plus => Some((POperator::new(POperatorKind::BinaryAdd, token), (5, 6))),
-            TokenType::QuestionMark => {
+            TokenKind::Equals => Some((POperator::new(POperatorKind::Equals, token), (3, 4))),
+            TokenKind::NotEquals => Some((POperator::new(POperatorKind::NotEquals, token), (3, 4))),
+            TokenKind::Minus => Some((POperator::new(POperatorKind::Subtract, token), (5, 6))),
+            TokenKind::Plus => Some((POperator::new(POperatorKind::BinaryAdd, token), (5, 6))),
+            TokenKind::QuestionMark => {
                 Some((POperator::new(POperatorKind::Conditional, token), (1, 2)))
             }
-            TokenType::Slash => Some((POperator::new(POperatorKind::Divide, token), (7, 8))),
-            TokenType::Star => Some((POperator::new(POperatorKind::Multiply, token), (7, 8))),
+            TokenKind::Slash => Some((POperator::new(POperatorKind::Divide, token), (7, 8))),
+            TokenKind::Star => Some((POperator::new(POperatorKind::Multiply, token), (7, 8))),
             _ => None,
         }?;
         if l_bp < min_bp {
@@ -242,11 +242,11 @@ impl<'a> Parser<'a> {
         let token = self.tokenizer.peek()?;
         let token = token.clone();
         let (operator, (l_bp, r_bp)) = match token.token_type() {
-            TokenType::Increment => Some((
+            TokenKind::Increment => Some((
                 POperator::new(POperatorKind::PostIncrement, token),
                 (11, ()),
             )),
-            TokenType::SquareBracketOpen => {
+            TokenKind::SquareBracketOpen => {
                 Some((POperator::new(POperatorKind::Subscript, token), (13, ())))
             }
             _ => None,
@@ -261,26 +261,26 @@ impl<'a> Parser<'a> {
 
     const fn prefix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
         match token.token_type() {
-            TokenType::Exclamation => Ok(POperator::new(POperatorKind::Not, token)),
-            TokenType::Increment => Ok(POperator::new(POperatorKind::PreIncrement, token)),
-            TokenType::Minus => Ok(POperator::new(POperatorKind::Negate, token)),
+            TokenKind::Exclamation => Ok(POperator::new(POperatorKind::Not, token)),
+            TokenKind::Increment => Ok(POperator::new(POperatorKind::PreIncrement, token)),
+            TokenKind::Minus => Ok(POperator::new(POperatorKind::Negate, token)),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
 }
-const fn prefix_binding_power(token_type: &TokenType) -> Option<((), u8)> {
+const fn prefix_binding_power(token_type: &TokenKind) -> Option<((), u8)> {
     match token_type {
-        TokenType::Exclamation => Some(((), 10)),
-        TokenType::Increment => Some(((), 12)),
-        TokenType::Minus | TokenType::Plus => Some(((), 8)),
+        TokenKind::Exclamation => Some(((), 10)),
+        TokenKind::Increment => Some(((), 12)),
+        TokenKind::Minus | TokenKind::Plus => Some(((), 8)),
         _ => None,
     }
 }
 
-const fn is_token_prefix_operator(token_type: &TokenType) -> bool {
+const fn is_token_prefix_operator(token_type: &TokenKind) -> bool {
     matches!(
         token_type,
-        TokenType::Increment | TokenType::Minus | TokenType::Exclamation | TokenType::Plus
+        TokenKind::Increment | TokenKind::Minus | TokenKind::Exclamation | TokenKind::Plus
     )
 }
 
@@ -292,7 +292,7 @@ mod tests {
             parse_code, PAtom, PIdentifier, PLiteralPrimitive, PStatement, ParseResult, ParseTree,
             ParseTreeRoot, Parser,
         },
-        tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
+        tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
     };
     use pretty_assertions::assert_eq;
 
@@ -305,7 +305,7 @@ mod tests {
             parser.parse_expression().expect("should parse"),
             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                 value: 1.0,
-                token: Token::new(TokenType::Literal, TokenLocation { row: 1, column: 1 }, "1")
+                token: Token::new(TokenKind::Literal, TokenLocation { row: 1, column: 1 }, "1")
             }))
         );
         let code = "ident";
@@ -315,7 +315,7 @@ mod tests {
             parser.parse_expression().expect("should parse"),
             PExpression::Atom(PAtom::Identifier(PIdentifier {
                 token: Token::new(
-                    TokenType::Identifier,
+                    TokenKind::Identifier,
                     TokenLocation { row: 1, column: 1 },
                     "ident"
                 )
@@ -396,7 +396,7 @@ mod tests {
                 statements: vec![PStatement::Expression {
                     expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
                         token: Token::new(
-                            TokenType::Identifier,
+                            TokenKind::Identifier,
                             TokenLocation { row: 1, column: 1 },
                             "y",
                         ),
@@ -418,7 +418,7 @@ mod tests {
                         POperator {
                             kind: POperatorKind::Subtract,
                             token: Token::new(
-                                TokenType::Minus,
+                                TokenKind::Minus,
                                 TokenLocation { row: 1, column: 3 },
                                 "-",
                             ),
@@ -427,7 +427,7 @@ mod tests {
                             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 3.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 1, column: 1 },
                                     "3",
                                 ),
@@ -435,7 +435,7 @@ mod tests {
                             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 2.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 1, column: 5 },
                                     "2",
                                 ),
@@ -460,7 +460,7 @@ mod tests {
                         POperator {
                             kind: POperatorKind::Multiply,
                             token: Token::new(
-                                TokenType::Star,
+                                TokenKind::Star,
                                 TokenLocation { row: 1, column: 3 },
                                 "*",
                             ),
@@ -469,7 +469,7 @@ mod tests {
                             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 3.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 1, column: 1 },
                                     "3",
                                 ),
@@ -477,7 +477,7 @@ mod tests {
                             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 2.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 1, column: 5 },
                                     "2",
                                 ),
@@ -502,7 +502,7 @@ mod tests {
                         POperator {
                             kind: POperatorKind::Divide,
                             token: (Token::new(
-                                TokenType::Slash,
+                                TokenKind::Slash,
                                 TokenLocation { row: 1, column: 3 },
                                 "/",
                             )),
@@ -511,7 +511,7 @@ mod tests {
                             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 3.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 1, column: 1 },
                                     "3",
                                 ),
@@ -519,7 +519,7 @@ mod tests {
                             PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                 value: 2.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 1, column: 5 },
                                     "2",
                                 ),
@@ -551,7 +551,7 @@ mod tests {
                         POperator {
                             kind: POperatorKind::BinaryAdd,
                             token: Token::new(
-                                TokenType::Plus,
+                                TokenKind::Plus,
                                 TokenLocation { row: 1, column: 9 },
                                 "+",
                             ),
@@ -561,7 +561,7 @@ mod tests {
                                 POperator {
                                     kind: POperatorKind::BinaryAdd,
                                     token: Token::new(
-                                        TokenType::Plus,
+                                        TokenKind::Plus,
                                         TokenLocation { row: 1, column: 3 },
                                         "+",
                                     ),
@@ -570,7 +570,7 @@ mod tests {
                                     PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
                                         value: 3.0,
                                         token: Token::new(
-                                            TokenType::Literal,
+                                            TokenKind::Literal,
                                             TokenLocation { row: 1, column: 1 },
                                             "3",
                                         ),
@@ -579,14 +579,14 @@ mod tests {
                                         POperator {
                                             kind: POperatorKind::PostIncrement,
                                             token: Token::new(
-                                                TokenType::Increment,
+                                                TokenKind::Increment,
                                                 TokenLocation { row: 1, column: 6 },
                                                 "++",
                                             ),
                                         },
                                         vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
                                             token: Token::new(
-                                                TokenType::Identifier,
+                                                TokenKind::Identifier,
                                                 TokenLocation { row: 1, column: 5 },
                                                 "a",
                                             ),
@@ -598,14 +598,14 @@ mod tests {
                                 POperator {
                                     kind: POperatorKind::PreIncrement,
                                     token: Token::new(
-                                        TokenType::Increment,
+                                        TokenKind::Increment,
                                         TokenLocation { row: 1, column: 11 },
                                         "++",
                                     ),
                                 },
                                 vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
                                     token: Token::new(
-                                        TokenType::Identifier,
+                                        TokenKind::Identifier,
                                         TokenLocation { row: 1, column: 13 },
                                         "b",
                                     ),
@@ -631,7 +631,7 @@ mod tests {
                         POperator {
                             kind: POperatorKind::FunctionCall,
                             token: Token::new(
-                                TokenType::ParenthesisOpen,
+                                TokenKind::ParenthesisOpen,
                                 TokenLocation { row: 1, column: 4 },
                                 "(",
                             ),
@@ -639,21 +639,21 @@ mod tests {
                         vec![
                             PExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 1, column: 1 },
                                     "foo",
                                 ),
                             })),
                             PExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 1, column: 5 },
                                     "a",
                                 ),
                             })),
                             PExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
-                                    TokenType::Identifier,
+                                    TokenKind::Identifier,
                                     TokenLocation { row: 1, column: 8 },
                                     "b",
                                 ),

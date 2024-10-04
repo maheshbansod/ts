@@ -1,16 +1,16 @@
-use crate::tokenizer::TokenType;
+use crate::tokenizer::TokenKind;
 
 use super::{PIdentifier, ParseResult, Parser, ParserError};
 
 impl<'a> Parser<'a> {
     pub(super) fn parse_identifier(&mut self) -> ParseResult<'a, PIdentifier<'a>> {
         if let Some(token) = self.tokenizer.peek() {
-            if token.token_type() == &TokenType::Identifier {
+            if token.token_type() == &TokenKind::Identifier {
                 let token = self.tokenizer.next().unwrap();
                 Ok(PIdentifier { token })
             } else {
                 Err(ParserError::ExpectedToken {
-                    expected: TokenType::Identifier,
+                    expected: TokenKind::Identifier,
                     got: token.clone(),
                 })
             }
@@ -27,7 +27,7 @@ mod tests {
             parse_code, PAtom, PExpression, PIdentifier, PStatement, ParseResult, ParseTree,
             ParseTreeRoot,
         },
-        tokenizer::{Token, TokenLocation, TokenType},
+        tokenizer::{Token, TokenKind, TokenLocation},
     };
     use pretty_assertions::assert_eq;
 
@@ -39,7 +39,7 @@ mod tests {
                 statements: vec![PStatement::Expression {
                     expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
                         token: Token::new(
-                            TokenType::Identifier,
+                            TokenKind::Identifier,
                             TokenLocation { row: 1, column: 1 },
                             "x",
                         ),

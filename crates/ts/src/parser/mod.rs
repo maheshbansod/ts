@@ -8,7 +8,7 @@ mod object;
 
 use std::{error::Error, fmt::Display, iter::Peekable};
 
-use crate::tokenizer::{Token, TokenType, Tokenizer};
+use crate::tokenizer::{Token, TokenKind, Tokenizer};
 
 pub struct Parser<'a> {
     tokenizer: Peekable<Tokenizer<'a>>,
@@ -48,7 +48,7 @@ impl<'a> Parser<'a> {
                     .peek()
                     .ok_or(ParserError::UnexpectedEof)?
                     .token_type()
-                    == &TokenType::BraceClose
+                    == &TokenKind::BraceClose
             {
                 self.tokenizer.next();
                 break;
@@ -80,12 +80,12 @@ impl<'a> Parser<'a> {
         let (statement, errors) = if let Some(next_token) = self.tokenizer.peek() {
             if let Ok(binding_type) = next_token.token_type().clone().try_into() {
                 (self.parse_binding(binding_type)?, vec![])
-            } else if next_token.token_type() == &TokenType::BraceOpen {
+            } else if next_token.token_type() == &TokenKind::BraceOpen {
                 // we're in a block hmmm
                 self.tokenizer.next(); // consume brace
                 let (statements, errors) = self.parse_block_statements(true)?;
                 (PStatement::Block { statements }, errors)
-            } else if next_token.token_type() == &TokenType::If {
+            } else if next_token.token_type() == &TokenKind::If {
                 self.tokenizer.next();
                 let (statement, errors) = self.parse_if_else()?;
                 (PStatement::If { statement }, errors)
@@ -102,14 +102,14 @@ impl<'a> Parser<'a> {
     }
 
     /// Check if a token is there
-    fn is_next_token(&mut self, token_type: &TokenType) -> bool {
+    fn is_next_token(&mut self, token_type: &TokenKind) -> bool {
         self.tokenizer
             .peek()
             .is_some_and(|token| token.token_type() == token_type)
     }
 
     /// Check if a token is there and consume
-    fn expect_token(&mut self, token_type: TokenType) -> ParseResult<'a, Token<'a>> {
+    fn expect_token(&mut self, token_type: TokenKind) -> ParseResult<'a, Token<'a>> {
         if let Some(token) = self.tokenizer.peek() {
             if token.token_type() == &token_type {
                 let token = self.tokenizer.next().expect("We peeked in the above if");
@@ -129,7 +129,7 @@ impl<'a> Parser<'a> {
     fn optional_semicolon(&mut self) {
         let next_token = self.tokenizer.peek();
         if let Some(next_token) = next_token {
-            if next_token.token_type() == &TokenType::Semicolon {
+            if next_token.token_type() == &TokenKind::Semicolon {
                 let _ = self.tokenizer.next();
             }
         }
@@ -195,12 +195,12 @@ use self::expression::PExpression;
 impl<'a> PLiteralPrimitive<'a> {
     fn string(s: &'a str, row: usize, column: usize, delim: &'a str) -> Self {
         let start_delim = Token::new(
-            TokenType::StringLiteralStart,
+            TokenKind::StringLiteralStart,
             TokenLocation { row, column },
             delim,
         );
         let value_token = Some(Token::new(
-            TokenType::Literal,
+            TokenKind::Literal,
             TokenLocation {
                 row,
                 column: column + 1,
@@ -208,7 +208,7 @@ impl<'a> PLiteralPrimitive<'a> {
             s,
         ));
         let end_delim = Token::new(
-            TokenType::StringLiteralEnd,
+            TokenKind::StringLiteralEnd,
             TokenLocation {
                 row,
                 column: column + s.len() + 1,
@@ -286,7 +286,7 @@ enum BindingType {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParserError<'a> {
     ExpectedLiteral,
-    ExpectedToken { expected: TokenType, got: Token<'a> },
+    ExpectedToken { expected: TokenKind, got: Token<'a> },
     UnexpectedEof,
     UnexpectedToken(Token<'a>),
 }
@@ -371,13 +371,13 @@ impl<'a> Display for ParserError<'a> {
     }
 }
 
-impl TryFrom<TokenType> for BindingType {
+impl TryFrom<TokenKind> for BindingType {
     type Error = ();
 
-    fn try_from(value: TokenType) -> Result<Self, Self::Error> {
+    fn try_from(value: TokenKind) -> Result<Self, Self::Error> {
         match value {
-            TokenType::Const => Ok(Self::Const),
-            TokenType::Let => Ok(Self::Let),
+            TokenKind::Const => Ok(Self::Const),
+            TokenKind::Let => Ok(Self::Let),
             _ => Err(()),
         }
     }
@@ -395,7 +395,7 @@ mod tests {
     use super::*;
     use crate::{
         parser::expression::POperator,
-        tokenizer::{Token, TokenLocation, TokenType, Tokenizer},
+        tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
     };
     use expression::POperatorKind;
     use pretty_assertions::assert_eq;
@@ -418,7 +418,7 @@ let z = x + y;
                         binding_type: BindingType::Let,
                         identifier: PIdentifier {
                             token: Token::new(
-                                TokenType::Identifier,
+                                TokenKind::Identifier,
                                 TokenLocation { row: 2, column: 5 },
                                 "x",
                             ),
@@ -427,7 +427,7 @@ let z = x + y;
                             PLiteralPrimitive::Number {
                                 value: 30.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 2, column: 9 },
                                     "30",
                                 ),
@@ -438,7 +438,7 @@ let z = x + y;
                         binding_type: BindingType::Let,
                         identifier: PIdentifier {
                             token: Token::new(
-                                TokenType::Identifier,
+                                TokenKind::Identifier,
                                 TokenLocation { row: 3, column: 5 },
                                 "y",
                             ),
@@ -447,7 +447,7 @@ let z = x + y;
                             PLiteralPrimitive::Number {
                                 value: 100.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 3, column: 9 },
                                     "100",
                                 ),
@@ -458,7 +458,7 @@ let z = x + y;
                         binding_type: BindingType::Let,
                         identifier: PIdentifier {
                             token: Token::new(
-                                TokenType::Identifier,
+                                TokenKind::Identifier,
                                 TokenLocation { row: 4, column: 5 },
                                 "z",
                             ),
@@ -467,7 +467,7 @@ let z = x + y;
                             POperator::new(
                                 POperatorKind::BinaryAdd,
                                 Token::new(
-                                    TokenType::Plus,
+                                    TokenKind::Plus,
                                     TokenLocation { row: 4, column: 11 },
                                     "+",
                                 ),
@@ -475,14 +475,14 @@ let z = x + y;
                             vec![
                                 PExpression::Atom(PAtom::Identifier(PIdentifier {
                                     token: Token::new(
-                                        TokenType::Identifier,
+                                        TokenKind::Identifier,
                                         TokenLocation { row: 4, column: 9 },
                                         "x",
                                     ),
                                 })),
                                 PExpression::Atom(PAtom::Identifier(PIdentifier {
                                     token: Token::new(
-                                        TokenType::Identifier,
+                                        TokenKind::Identifier,
                                         TokenLocation { row: 4, column: 13 },
                                         "y",
                                     ),
@@ -519,7 +519,7 @@ y;
                         binding_type: BindingType::Let,
                         identifier: PIdentifier {
                             token: Token::new(
-                                TokenType::Identifier,
+                                TokenKind::Identifier,
                                 TokenLocation { row: 2, column: 5 },
                                 "x",
                             ),
@@ -528,7 +528,7 @@ y;
                             PLiteralPrimitive::Number {
                                 value: 1.0,
                                 token: Token::new(
-                                    TokenType::Literal,
+                                    TokenKind::Literal,
                                     TokenLocation { row: 2, column: 9 },
                                     "1",
                                 ),
@@ -541,7 +541,7 @@ y;
                                 binding_type: BindingType::Let,
                                 identifier: PIdentifier {
                                     token: Token::new(
-                                        TokenType::Identifier,
+                                        TokenKind::Identifier,
                                         TokenLocation { row: 4, column: 9 },
                                         "y",
                                     ),
@@ -550,7 +550,7 @@ y;
                                     PLiteralPrimitive::Number {
                                         value: 2.0,
                                         token: Token::new(
-                                            TokenType::Literal,
+                                            TokenKind::Literal,
                                             TokenLocation { row: 4, column: 13 },
                                             "2",
                                         ),
@@ -562,7 +562,7 @@ y;
                                     POperator::new(
                                         POperatorKind::BinaryAdd,
                                         Token::new(
-                                            TokenType::Plus,
+                                            TokenKind::Plus,
                                             TokenLocation { row: 5, column: 7 },
                                             "+",
                                         ),
@@ -570,14 +570,14 @@ y;
                                     vec![
                                         PExpression::Atom(PAtom::Identifier(PIdentifier {
                                             token: Token::new(
-                                                TokenType::Identifier,
+                                                TokenKind::Identifier,
                                                 TokenLocation { row: 5, column: 5 },
                                                 "x",
                                             ),
                                         })),
                                         PExpression::Atom(PAtom::Identifier(PIdentifier {
                                             token: Token::new(
-                                                TokenType::Identifier,
+                                                TokenKind::Identifier,
                                                 TokenLocation { row: 5, column: 9 },
                                                 "y",
                                             ),
@@ -590,7 +590,7 @@ y;
                     PStatement::Expression {
                         expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
                             token: Token::new(
-                                TokenType::Identifier,
+                                TokenKind::Identifier,
                                 TokenLocation { row: 7, column: 1 },
                                 "y",
                             ),
@@ -613,9 +613,9 @@ let x = function ( {};
         assert_eq!(
             errors[0],
             ParserError::ExpectedToken {
-                expected: TokenType::ParenthesisClose,
+                expected: TokenKind::ParenthesisClose,
                 got: Token::new(
-                    TokenType::BraceOpen,
+                    TokenKind::BraceOpen,
                     TokenLocation { row: 2, column: 20 },
                     "{"
                 )
