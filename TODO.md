@@ -16,6 +16,8 @@ things to do
 
 - [ ] Relational operators
 - [ ] Comparison operators
+- [ ] dot operator
+- [ ] Associativity stuff ( + it's supporting in macro)
 
 ### Error stuff
 
