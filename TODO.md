@@ -5,7 +5,17 @@ things to do
 
 ## Application
 
-- [ ] Destructuring operator should be part of expression i guess
+- [ ] \[Defer/won't fix\] Destructuring operator should be part of expression i guess
+
+### Syntax
+
+- [ ] Add var binding
+- [ ] Assign expression
+
+### Operators
+
+- [ ] Relational operators
+- [ ] Comparison operators
 
 ### Error stuff
 
@@ -15,12 +25,13 @@ things to do
 
 ### Macros
 
-- [ ] Make a macro to set priorities for operators automatically
+- [x] Make a macro to set priorities for operators automatically
+- [ ] string -> tokenkind for keywords and operators
 
 ## Non-application
 
 - [ ] use cargo-make or just or something
-- [ ] add README.md
+- [x] add README.md
 
 ## extr
 
