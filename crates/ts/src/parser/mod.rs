@@ -139,16 +139,16 @@ impl<'a> Parser<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct ParseTree<'a> {
-    root: ParseTreeRoot<'a>,
+    pub root: ParseTreeRoot<'a>,
 }
 
 #[derive(Debug, PartialEq)]
-struct ParseTreeRoot<'a> {
-    statements: Vec<PStatement<'a>>,
+pub struct ParseTreeRoot<'a> {
+    pub statements: Vec<PStatement<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
-enum PStatement<'a> {
+pub enum PStatement<'a> {
     Binding {
         binding_type: BindingType,
         identifier: PIdentifier<'a>,
@@ -166,7 +166,7 @@ enum PStatement<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-enum PAtom<'a> {
+pub enum PAtom<'a> {
     Literal(PLiteralPrimitive<'a>),
     ObjectLiteral(PObject<'a>),
     Identifier(PIdentifier<'a>),
@@ -174,7 +174,7 @@ enum PAtom<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-enum PLiteralPrimitive<'a> {
+pub enum PLiteralPrimitive<'a> {
     Number {
         value: f32, // to check what value we should keep
         token: Token<'a>,
@@ -227,7 +227,7 @@ impl<'a> PLiteralPrimitive<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-struct PObject<'a> {
+pub struct PObject<'a> {
     entries: Vec<PObjectEntry<'a>>,
 }
 
@@ -251,7 +251,7 @@ enum PObjectKey<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-struct PIdentifier<'a> {
+pub struct PIdentifier<'a> {
     token: Token<'a>,
 }
 
@@ -262,7 +262,7 @@ struct PIfStatement<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-struct PIfElseStatement<'a> {
+pub struct PIfElseStatement<'a> {
     if_statement: PIfStatement<'a>,
     /// intermediate else ifs in sequence
     else_if_statements: Vec<PIfStatement<'a>>,
@@ -271,14 +271,14 @@ struct PIfElseStatement<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-struct PFunction<'a> {
+pub struct PFunction<'a> {
     identifier: Option<PIdentifier<'a>>,
     arguments: Vec<PIdentifier<'a>>,
     body: Vec<PStatement<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
-enum BindingType {
+pub enum BindingType {
     Let,
     Const,
 }

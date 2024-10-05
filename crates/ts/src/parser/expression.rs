@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::tokenizer::{Token, TokenKind};
+use crate::tokenizer::TokenKind;
 
 use super::{
     operator::{POperator, POperatorKind},
@@ -8,7 +8,7 @@ use super::{
 };
 
 #[derive(Debug, PartialEq)]
-pub(super) enum PExpression<'a> {
+pub enum PExpression<'a> {
     Atom(PAtom<'a>),
     Cons(POperator<'a>, Vec<PExpression<'a>>),
 }

@@ -23,7 +23,7 @@ make_operators!(
 );
 
 #[derive(Debug, PartialEq)]
-pub(super) struct POperator<'a> {
+pub struct POperator<'a> {
     pub kind: POperatorKind,
     pub token: Token<'a>,
 }
