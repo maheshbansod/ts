@@ -21,12 +21,23 @@ pub fn make_operators(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let doc_comments = operators.iter().map(|op| {
-        if let Some(c) = op.doc_comment.clone() {
+        let line_1 = format!(
+            "({}) {} operator",
+            op.kind.to_string(),
+            op.display_str.value()
+        );
+        let line_3 = format!("\nassociated with TokenKind::{}", op.token_kind.to_string());
+        let orig_comment = if let Some(c) = op.doc_comment.clone() {
             quote! {
                 #[doc = #c]
             }
         } else {
             quote! {}
+        };
+        quote! {
+            #[doc = #line_1]
+            #orig_comment
+            #[doc = #line_3]
         }
     });
 
