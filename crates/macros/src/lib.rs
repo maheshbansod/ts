@@ -1,9 +1,10 @@
 use core::panic;
+use std::fmt::Display;
 
 use proc_macro::TokenStream;
-use syn::{parenthesized, parse::Parse, parse_macro_input, Expr, ExprPath, Ident, LitStr, Token};
+use syn::{parenthesized, parse::Parse, parse_macro_input, Ident, LitStr, Token};
 
-use quote::quote;
+use quote::{format_ident, quote};
 
 #[proc_macro]
 pub fn make_operators(input: TokenStream) -> TokenStream {
@@ -19,11 +20,24 @@ pub fn make_operators(input: TokenStream) -> TokenStream {
         .map(|op| op.display_str.clone())
         .collect::<Vec<_>>();
 
-    // 1. enum construction
+    let doc_comments = operators.iter().map(|op| {
+        if let Some(c) = op.doc_comment.clone() {
+            quote! {
+                #[doc = #c]
+            }
+        } else {
+            quote! {}
+        }
+    });
+
+    // enum construction
     let my_enum = quote! {
         #[derive(Debug, PartialEq)]
         pub(super) enum POperatorKind {
-            #(  #operator_idents  ),*
+            #(
+                #doc_comments
+                #operator_idents
+            ),*
         }
     };
 
@@ -37,10 +51,50 @@ pub fn make_operators(input: TokenStream) -> TokenStream {
         }
     };
 
+    let mut infix_operator_bps = vec![];
+    let mut prefix_operator_bps = vec![];
+    let mut postfix_operator_bps = vec![];
+
+    let mut i = 1;
+    for operator in operators.iter() {
+        match operator.kind {
+            POperatorKind::In => {
+                // TODO: handle associativity
+                infix_operator_bps.push((Some(i), Some(i + 1)));
+            }
+            POperatorKind::Pre => {
+                prefix_operator_bps.push((None::<u8>, Some(i + 1)));
+            }
+            POperatorKind::Post => {
+                postfix_operator_bps.push((Some(i), None::<u8>));
+            }
+        }
+        i += 2;
+    }
+
+    let infix_operators = OperatorGroup::from_operator_inputs(POperatorKind::In, &operators);
+    let infix_operator_parse_impl =
+        generate_operator_parse_impl(infix_operators, infix_operator_bps);
+    let prefix_operators = OperatorGroup::from_operator_inputs(POperatorKind::Pre, &operators);
+    let prefix_operator_parse_impl =
+        generate_operator_parse_impl(prefix_operators, prefix_operator_bps);
+    let postfix_operators = OperatorGroup::from_operator_inputs(POperatorKind::Post, &operators);
+    let postfix_operator_parse_impl =
+        generate_operator_parse_impl(postfix_operators, postfix_operator_bps);
+
     let result = quote! {
         #my_enum
 
         #my_enum_display_impl
+
+        impl<'a> Parser<'a> {
+            #infix_operator_parse_impl
+
+            #prefix_operator_parse_impl
+
+            #postfix_operator_parse_impl
+        }
+
     };
 
     result.into()
@@ -65,11 +119,19 @@ impl Parse for POperatorDataInput {
         let token_kind = content.parse::<Ident>()?;
         content.parse::<Token![,]>()?;
         let display_str = content.parse::<LitStr>()?;
+        let doc_comment = if content.peek(Token![,]) {
+            content.parse::<Token![,]>()?;
+            let doc_comment = content.parse::<LitStr>()?;
+            Some(doc_comment)
+        } else {
+            None
+        };
         Ok(POperatorDataInput {
             kind,
             operator_variant,
             token_kind,
             display_str,
+            doc_comment,
         })
     }
 }
@@ -87,12 +149,80 @@ impl Parse for POperatorKind {
     }
 }
 
-/// Parses something like this:
-/// make_operators! (
-///     (infix, BinaryAdd, TokenKind::Plus),
-///     (infix, Subtract, TokenKind::Minus),
-///     (pre, Negate, TokenKind::Minus),
-/// )
+fn generate_operator_parse_impl(
+    operator_group: OperatorGroup,
+    binding_powers: Vec<(Option<u8>, Option<u8>)>,
+) -> proc_macro2::TokenStream {
+    let OperatorGroup {
+        token_kinds,
+        operator_idents,
+        kind,
+    } = operator_group;
+    let method_name = format_ident!("try_parse_{kind}_operator");
+    let bps = binding_powers
+        .iter()
+        .map(|(l_bp, r_bp)| {
+            let l_bp = if !matches!(kind, POperatorKind::Pre) {
+                let l_bp = l_bp.expect(&format!("Expect left for {kind}"));
+                quote! { #l_bp }
+            } else {
+                quote! { () }
+            };
+            let r_bp = if !matches!(kind, POperatorKind::Post) {
+                let r_bp = r_bp.expect(&format!("Expect right for {kind}"));
+                quote! { #r_bp }
+            } else {
+                quote! { () }
+            };
+            quote! { ( #l_bp , #r_bp ) }
+        })
+        .collect::<Vec<_>>();
+
+    let return_type = {
+        let r_bp = if !matches!(kind, POperatorKind::Post) {
+            quote! { u8 }
+        } else {
+            quote! { () }
+        };
+        let l_bp = if !matches!(kind, POperatorKind::Pre) {
+            quote! { u8 }
+        } else {
+            quote! { () }
+        };
+        quote! { ( #l_bp , #r_bp ) }
+    };
+
+    let bp_condition = if !matches!(kind, POperatorKind::Pre) {
+        quote! {
+            if l_bp < min_bp {
+                None
+            } else {
+                self.tokenizer.next();
+                Some((operator, (l_bp, r_bp)))
+            }
+        }
+    } else {
+        quote! {
+            self.tokenizer.next();
+            Some((operator, (l_bp, r_bp)))
+        }
+    };
+
+    quote! {
+        pub(super) fn #method_name(&mut self, min_bp: u8) -> Option<(POperator<'a>, #return_type )> {
+            let token = self.tokenizer.peek()?;
+            let token = token.clone();
+            let (operator, (l_bp, r_bp)) = match token.token_type() {
+
+                #( TokenKind::#token_kinds => Some((POperator::new(POperatorKind::#operator_idents, token), #bps)), )*
+
+                _ => None,
+            }?;
+            #bp_condition
+        }
+    }
+}
+
 struct MakeOperatorsInput {
     operators: Vec<POperatorDataInput>,
 }
@@ -104,15 +234,43 @@ struct POperatorDataInput {
     token_kind: Ident,
     /// The display impl for this
     display_str: LitStr,
+    doc_comment: Option<LitStr>,
 }
 
-struct OperatorPriority {
-    lhs: Option<u8>,
-    rhs: Option<u8>,
+struct OperatorGroup {
+    kind: POperatorKind,
+    operator_idents: Vec<Ident>,
+    token_kinds: Vec<Ident>,
 }
 
+impl OperatorGroup {
+    fn from_operator_inputs(kind: POperatorKind, operators: &Vec<POperatorDataInput>) -> Self {
+        let (operator_idents, token_kinds) = operators
+            .iter()
+            .filter(|op| op.kind == kind)
+            .map(|op| (op.operator_variant.clone(), op.token_kind.clone()))
+            .collect();
+        OperatorGroup {
+            kind,
+            operator_idents,
+            token_kinds,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum POperatorKind {
     Post,
     Pre,
     In,
+}
+
+impl Display for POperatorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::In => write!(f, "infix"),
+            Self::Pre => write!(f, "prefix"),
+            Self::Post => write!(f, "postfix"),
+        }
+    }
 }

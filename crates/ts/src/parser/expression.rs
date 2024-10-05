@@ -48,18 +48,11 @@ impl<'a> Parser<'a> {
         &mut self,
         min_binding_power: u8,
     ) -> ParseResult<'a, PExpression<'a>> {
-        let token = self.tokenizer.peek().ok_or(ParserError::UnexpectedEof)?;
-        let mut lhs = if is_token_prefix_operator(token.token_type()) {
-            let token_type = token.token_type().clone();
-            if let Some(((), bp)) = prefix_binding_power(&token_type) {
-                let token = self.tokenizer.next().unwrap();
-                let operator = Parser::prefix_token_as_operator(token).unwrap();
-                let rhs = self.parse_expression_pratt(bp)?;
-                PExpression::Cons(operator, vec![rhs])
-            } else {
-                let token = self.tokenizer.peek().unwrap().clone();
-                return Err(ParserError::UnexpectedToken(token));
-            }
+        let mut lhs = if let Some((operator, (_, r_bp))) =
+            self.try_parse_prefix_operator(min_binding_power)
+        {
+            let rhs = self.parse_expression_pratt(r_bp)?;
+            PExpression::Cons(operator, vec![rhs])
         } else if let (Some(atom), _errors) = self.try_parse_atom()? {
             PExpression::Atom(atom)
         } else if self.expect_token(TokenKind::ParenthesisOpen).is_ok() {
@@ -161,74 +154,6 @@ impl<'a> Parser<'a> {
             Err(ParserError::UnexpectedEof)
         }
     }
-
-    fn try_parse_infix_operator(&mut self, min_bp: u8) -> Option<(POperator<'a>, (u8, u8))> {
-        let token = self.tokenizer.peek()?;
-        let token = token.clone();
-        let (operator, (l_bp, r_bp)) = match token.token_type() {
-            TokenKind::Equals => Some((POperator::new(POperatorKind::Equals, token), (3, 4))),
-            TokenKind::NotEquals => Some((POperator::new(POperatorKind::NotEquals, token), (3, 4))),
-            TokenKind::Minus => Some((POperator::new(POperatorKind::Subtract, token), (5, 6))),
-            TokenKind::Plus => Some((POperator::new(POperatorKind::BinaryAdd, token), (5, 6))),
-            TokenKind::QuestionMark => {
-                Some((POperator::new(POperatorKind::Conditional, token), (1, 2)))
-            }
-            TokenKind::Slash => Some((POperator::new(POperatorKind::Divide, token), (7, 8))),
-            TokenKind::Star => Some((POperator::new(POperatorKind::Multiply, token), (7, 8))),
-            _ => None,
-        }?;
-        if l_bp < min_bp {
-            None
-        } else {
-            self.tokenizer.next();
-            Some((operator, (l_bp, r_bp)))
-        }
-    }
-
-    fn try_parse_postfix_operator(&mut self, min_bp: u8) -> Option<(POperator<'a>, (u8, ()))> {
-        let token = self.tokenizer.peek()?;
-        let token = token.clone();
-        let (operator, (l_bp, r_bp)) = match token.token_type() {
-            TokenKind::Increment => Some((
-                POperator::new(POperatorKind::PostIncrement, token),
-                (11, ()),
-            )),
-            TokenKind::SquareBracketOpen => {
-                Some((POperator::new(POperatorKind::Subscript, token), (13, ())))
-            }
-            _ => None,
-        }?;
-        if l_bp < min_bp {
-            None
-        } else {
-            self.tokenizer.next();
-            Some((operator, (l_bp, r_bp)))
-        }
-    }
-
-    const fn prefix_token_as_operator(token: Token<'a>) -> ParseResult<'a, POperator<'a>> {
-        match token.token_type() {
-            TokenKind::Exclamation => Ok(POperator::new(POperatorKind::Not, token)),
-            TokenKind::Increment => Ok(POperator::new(POperatorKind::PreIncrement, token)),
-            TokenKind::Minus => Ok(POperator::new(POperatorKind::Negate, token)),
-            _ => Err(ParserError::UnexpectedToken(token)),
-        }
-    }
-}
-const fn prefix_binding_power(token_type: &TokenKind) -> Option<((), u8)> {
-    match token_type {
-        TokenKind::Exclamation => Some(((), 10)),
-        TokenKind::Increment => Some(((), 12)),
-        TokenKind::Minus | TokenKind::Plus => Some(((), 8)),
-        _ => None,
-    }
-}
-
-const fn is_token_prefix_operator(token_type: &TokenKind) -> bool {
-    matches!(
-        token_type,
-        TokenKind::Increment | TokenKind::Minus | TokenKind::Exclamation | TokenKind::Plus
-    )
 }
 
 #[cfg(test)]

@@ -4,22 +4,22 @@ use macros::make_operators;
 
 use crate::tokenizer::{Token, TokenKind};
 
+use super::Parser;
+
 make_operators!(
+    (infix, Conditional, QuestionMark, "?:", "The ?: operator"),
+    (infix, Equals, Equals, "==", "comparison operator"),
     (infix, BinaryAdd, Plus, "+"),
-    //     /// The ?: operator
-    (infix, Conditional, QuestionMark, "?:"),
+    (infix, Subtract, Minus, "-"),
     (infix, Divide, Slash, "/"),
-    //     /// == comparison operator
-    (infix, Equals, Equals, "=="),
-    (pre, FunctionCall, Unknown, "CALL"), // todo
+    (pre, FunctionCall, Unknown, "CALL"),
     (infix, Multiply, Star, "*"),
-    (pre, Negate, Minus, "-"),
-    (pre, Not, Exclamation, "!"),
     (infix, NotEquals, NotEquals, "!="),
+    (post, Subscript, SquareBracketOpen, "[]"),
+    (pre, Not, Exclamation, "!"),
+    (pre, Negate, Minus, "-"),
     (post, PostIncrement, Increment, "++"),
     (pre, PreIncrement, Increment, "++"),
-    (infix, Subscript, SquareBracketOpen, "[]"),
-    (infix, Subtract, Minus, "-"),
 );
 
 #[derive(Debug, PartialEq)]
