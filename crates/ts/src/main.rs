@@ -1,5 +1,6 @@
 use std::error::Error;
 
+mod checker;
 mod interactive;
 mod parser;
 mod tokenizer;

@@ -4,7 +4,7 @@ use std::{
     io::{stdin, stdout, Write},
 };
 
-use crate::{parser::Parser, tokenizer::Tokenizer};
+use crate::{checker::Checker, parser::Parser, tokenizer::Tokenizer};
 
 pub fn interactive() -> Result<(), Box<dyn Error>> {
     loop {
@@ -23,9 +23,21 @@ pub fn interactive() -> Result<(), Box<dyn Error>> {
                     for error in errors {
                         println!("Error: {error}");
                     }
+                } else {
+                    // no errors, let's type check?
+                    let mut checker = Checker::new();
+                    let types = checker.check(tree);
+                    if !checker.errors.is_empty() {
+                        println!("Errors:");
+                        for error in checker.errors.iter() {
+                            println!("Error: {error:?}");
+                        }
+                    }
+                    println!("Type information: ");
+                    for t in types.iter() {
+                        println!("type: {:?}", t);
+                    }
                 }
-                println!("Output:");
-                println!("{tree:?}");
             }
             Err(e) => println!("Unhandled exception occurred: {e}\nThis could be a bug in tscheck"),
         }

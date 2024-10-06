@@ -190,7 +190,7 @@ pub enum PLiteralPrimitive<'a> {
 #[cfg(test)]
 use crate::tokenizer::TokenLocation;
 
-use self::expression::PExpression;
+pub use self::expression::PExpression;
 
 #[cfg(test)]
 impl<'a> PLiteralPrimitive<'a> {
