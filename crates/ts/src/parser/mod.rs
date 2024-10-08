@@ -255,6 +255,12 @@ pub struct PIdentifier<'a> {
     token: Token<'a>,
 }
 
+impl<'a> PIdentifier<'a> {
+    pub fn name(&self) -> &str {
+        self.token.lexeme()
+    }
+}
+
 #[derive(Debug, PartialEq)]
 struct PIfStatement<'a> {
     condition: PExpression<'a>,

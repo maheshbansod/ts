@@ -25,17 +25,18 @@ pub fn interactive() -> Result<(), Box<dyn Error>> {
                     }
                 } else {
                     // no errors, let's type check?
-                    let mut checker = Checker::new();
-                    let types = checker.check(tree);
-                    if !checker.errors.is_empty() {
+                    let checker = Checker::new(&tree);
+                    let (errors, types) = checker.check();
+                    if !errors.is_empty() {
                         println!("Errors:");
-                        for error in checker.errors.iter() {
+                        for error in errors.iter() {
                             println!("Error: {error:?}");
                         }
                     }
+
                     println!("Type information: ");
-                    for t in types.iter() {
-                        println!("type: {:?}", t);
+                    for (i, t) in types.iter() {
+                        println!("i: {:?}, type: {:?}", i, t);
                     }
                 }
             }
