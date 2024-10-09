@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 use crate::parser::{PAtom, PExpression, PLiteralPrimitive, PStatement, ParseTree};
 
@@ -64,7 +64,7 @@ impl<'a> Checker<'a> {
                         } else {
                             self.errors.push(TsError {
                                 kind: TypeErrorKind::ExpectedType {
-                                    got: expr_type.kind,
+                                    got: expr_type,
                                     expected: previous_type,
                                 },
                             })
@@ -109,20 +109,21 @@ impl<'a> Checker<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TsError<'a> {
     kind: TypeErrorKind<'a>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TypeErrorKind<'a> {
     ExpectedType {
-        got: TsType<'a>,
+        got: TsTypeHolder<'a, 'a>,
         expected: TsType<'a>,
     },
 }
 
 /// An entity that has a typescript type
+#[derive(Debug, PartialEq)]
 pub struct TsTypeHolder<'a, 'b> {
     kind: TsType<'a>,
     holding_for: &'a PExpression<'b>,
@@ -189,8 +190,8 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::{
-        checker::{Checker, TsLiteral, TsType},
-        parser::{PStatement, ParseTree, Parser},
+        checker::{Checker, TsError, TsLiteral, TsType, TsTypeHolder, TypeErrorKind},
+        parser::{PExpression, PStatement, ParseTree, Parser},
         tokenizer::Tokenizer,
     };
 
@@ -224,6 +225,43 @@ mod tests {
         let wrapper = parse_expr(code);
         let t = wrapper.check_expr();
         assert_eq!(t, TsType::Number)
+    }
+
+    #[test]
+    fn error_different_types() {
+        // TODO: this is not an error - maybe instead of merge types, depend on operator more
+        let code = "4 + '4'";
+        let tok = Tokenizer::new(code);
+        let parser = Parser::new(tok);
+        let (tree, errors) = parser.parse().unwrap();
+        assert!(errors.is_empty());
+        let checker = Checker::new(&tree);
+        let (errors, types) = checker.check();
+        let expr = match &tree.root.statements[0] {
+            PStatement::Expression { expression } => match expression {
+                PExpression::Cons(_op, args) => {
+                    let rhs = &args[1];
+                    rhs
+                }
+                _ => panic!(),
+            },
+            _ => panic!(),
+        };
+        let expected_errors = vec![TsError {
+            kind: TypeErrorKind::ExpectedType {
+                got: TsTypeHolder {
+                    kind: TsType::Literal(TsLiteral::String { value: "4".into() }),
+                    holding_for: expr,
+                },
+                expected: TsType::Literal(TsLiteral::Number { value: 4.0 }),
+            },
+        }];
+        let mut expected_errors = expected_errors.into_iter();
+        for error in errors {
+            let expected_error = expected_errors.next().unwrap();
+            assert_eq!(error, expected_error);
+        }
+        assert!(types.is_empty());
     }
 
     fn parse_expr(code: &str) -> TreeWrapper {
