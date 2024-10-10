@@ -1,4 +1,4 @@
-use std::{error::Error, fs::read_to_string};
+use std::{env, error::Error, fs::read_to_string};
 
 use checker::Checker;
 use parser::Parser;
@@ -14,6 +14,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     if args.len() == 1 {
         interactive::interactive()
     } else {
+        let should_show_parse_tree = env::var("SHOW_PARSE_TREE")
+            .map(|value| value == "true" || value == "1")
+            .unwrap_or(false);
         for arg in args.skip(1) {
             let file_name = arg;
             println!("Loading file '{file_name}'...");
@@ -26,6 +29,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Ok((tree, errors)) => {
                     if errors.is_empty() {
                         println!("No parser errors ✅");
+                        if should_show_parse_tree {
+                            println!("Parse tree: {tree:#?}");
+                        }
                     } else {
                         println!("❌ Parser errors: {errors:?}");
                     }
