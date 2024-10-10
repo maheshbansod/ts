@@ -33,7 +33,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                             println!("Parse tree: {tree:#?}");
                         }
                     } else {
-                        println!("❌ Parser errors: {errors:?}");
+                        println!(" ❌ Parser errors:");
+                        for error in errors {
+                            println!("    {error}");
+                        }
                     }
                     let checker = Checker::new(&tree);
                     println!("Type checking...");
