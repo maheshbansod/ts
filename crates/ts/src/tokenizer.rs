@@ -22,6 +22,10 @@ pub enum TokenKind {
     Minus,
     Exclamation,
     NotEquals,
+    /// A marker for something that's not a token - it isn't tokenized through the file but can be
+    /// used as a placeholder where a token is expected but there isn't one
+    #[allow(dead_code)]
+    None,
     ParenthesisClose,
     ParenthesisOpen,
     QuestionMark,
@@ -33,7 +37,7 @@ pub enum TokenKind {
     StringLiteralStart,
     SquareBracketClose,
     SquareBracketOpen,
-    /// Marker for an unknown token
+    /// Marker for an unknown token - It's expected for the parser to report unexpected token error
     Unknown,
     While,
 }

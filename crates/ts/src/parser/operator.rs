@@ -12,7 +12,7 @@ make_operators!(
     (infix, BinaryAdd, Plus, "+"),
     (infix, Subtract, Minus, "-"),
     (infix, Divide, Slash, "/"),
-    (pre, FunctionCall, Unknown, "CALL"),
+    (pre, FunctionCall, None, "CALL"),
     (infix, Multiply, Star, "*"),
     (infix, NotEquals, NotEquals, "!="),
     (post, Subscript, SquareBracketOpen, "[]"),
