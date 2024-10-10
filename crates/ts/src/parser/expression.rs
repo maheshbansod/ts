@@ -601,4 +601,22 @@ mod tests {
         assert_eq!(tree.to_string(), "+ (4 - (++ (-> (this x ) ) 1 ) )");
         Ok(())
     }
+
+    #[test]
+    fn member_access_multiple<'a>() -> ParseResult<'a, ()> {
+        let code = "a.b.c";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "-> (-> (a b ) c )");
+        Ok(())
+    }
+
+    #[test]
+    fn method_calling<'a>() -> ParseResult<'a, ()> {
+        let code = "console.log('hello')";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "CALL (-> (console log ) str(hello) )");
+        Ok(())
+    }
 }
