@@ -2,10 +2,7 @@ use std::fmt::Display;
 
 use crate::tokenizer::TokenKind;
 
-use super::{
-    operator::{POperator, POperatorKind},
-    PAtom, PIdentifier, ParseResult, Parser, ParserError,
-};
+use super::{operator::POperator, PAtom, PIdentifier, ParseResult, Parser, ParserError};
 
 #[derive(Debug, PartialEq)]
 pub enum PExpression<'a> {
@@ -69,36 +66,29 @@ impl<'a> Parser<'a> {
             if op_token.is_none() {
                 break;
             }
-            let op_token = op_token.unwrap();
 
-            if op_token.token_type() == &TokenKind::ParenthesisOpen {
-                // function call
-                let op_token = self.tokenizer.next().unwrap();
-                let mut args = vec![];
-                // parse args
-                loop {
-                    if let Ok(expression) = self.parse_expression() {
-                        args.push(expression);
-                        if self.expect_token(TokenKind::Comma).is_err() {
+            if let Some((operator, (_, r_bp))) = self.try_parse_infix_operator(min_binding_power) {
+                if operator.token_type() == &TokenKind::ParenthesisOpen {
+                    // function call
+                    let mut args = vec![];
+                    // parse args
+                    loop {
+                        if let Ok(expression) = self.parse_expression() {
+                            args.push(expression);
+                            if self.expect_token(TokenKind::Comma).is_err() {
+                                self.expect_token(TokenKind::ParenthesisClose)?;
+
+                                break;
+                            }
+                        } else {
                             self.expect_token(TokenKind::ParenthesisClose)?;
-
                             break;
                         }
-                    } else {
-                        self.expect_token(TokenKind::ParenthesisClose)?;
-                        break;
                     }
-                }
-                let mut call_args = vec![lhs];
-                call_args.extend(args);
-                lhs = PExpression::Cons(
-                    POperator::new(POperatorKind::FunctionCall, op_token),
-                    call_args,
-                );
-                continue;
-            }
-            if let Some((operator, (_, r_bp))) = self.try_parse_infix_operator(min_binding_power) {
-                if operator.token_type() == &TokenKind::QuestionMark {
+                    let mut call_args = vec![lhs];
+                    call_args.extend(args);
+                    lhs = PExpression::Cons(operator, call_args);
+                } else if operator.token_type() == &TokenKind::QuestionMark {
                     let mhs = self.parse_expression_pratt(r_bp)?;
                     self.expect_token(TokenKind::Colon)?;
                     let rhs = self.parse_expression_pratt(r_bp)?;
@@ -160,7 +150,8 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            expression::{PExpression, POperator, POperatorKind},
+            expression::{PExpression, POperator},
+            operator::POperatorKind,
             parse_code, PAtom, PIdentifier, PLiteralPrimitive, PStatement, ParseResult, ParseTree,
             ParseTreeRoot, Parser,
         },

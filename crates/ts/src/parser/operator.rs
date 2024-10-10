@@ -12,7 +12,6 @@ make_operators!(
     (infix, BinaryAdd, Plus, "+"),
     (infix, Subtract, Minus, "-"),
     (infix, Divide, Slash, "/"),
-    (pre, FunctionCall, None, "CALL"),
     (infix, Multiply, Star, "*"),
     (infix, NotEquals, NotEquals, "!="),
     (post, Subscript, SquareBracketOpen, "[]"),
@@ -20,6 +19,7 @@ make_operators!(
     (pre, Negate, Minus, "-"),
     (post, PostIncrement, Increment, "++"),
     (pre, PreIncrement, Increment, "++"),
+    (infix, FunctionCall, ParenthesisOpen, "CALL"),
     (infix, MemberAccess, Dot, "->")
 );
 
