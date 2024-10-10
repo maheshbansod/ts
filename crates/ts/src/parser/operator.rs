@@ -20,6 +20,7 @@ make_operators!(
     (pre, Negate, Minus, "-"),
     (post, PostIncrement, Increment, "++"),
     (pre, PreIncrement, Increment, "++"),
+    (infix, MemberAccess, Dot, "->")
 );
 
 #[derive(Debug, PartialEq)]

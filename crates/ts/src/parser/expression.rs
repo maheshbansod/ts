@@ -601,4 +601,13 @@ mod tests {
         assert_eq!(tree.to_string(), "?: (! (0 ) 1 0 )");
         Ok(())
     }
+
+    #[test]
+    fn member_access<'a>() -> ParseResult<'a, ()> {
+        let code = "4 + ++this.x - 1";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "+ (4 - (++ (-> (this x ) ) 1 ) )");
+        Ok(())
+    }
 }
