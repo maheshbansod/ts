@@ -13,6 +13,8 @@ pub fn interactive() -> Result<(), Box<dyn Error>> {
         let line = read_line()?;
         if line.trim_end() == "exit" {
             break;
+        } else if line.trim().is_empty() {
+            continue;
         }
         let tokenizer = Tokenizer::new(&line);
         let parser = Parser::new(tokenizer);
