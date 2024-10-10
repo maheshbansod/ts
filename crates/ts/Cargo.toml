@@ -9,7 +9,9 @@ macros = { path = "../macros" }
 [dev-dependencies]
 pretty_assertions = "1.4.1"
 
+# todo: put this block in workspace Cargo.toml
 [lints.clippy]
 all = "warn"
 nursery = "warn"
 pedantic = "warn"
+module_name_repetitions = "allow"

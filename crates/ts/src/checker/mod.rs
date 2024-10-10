@@ -8,7 +8,7 @@ pub struct Checker<'a> {
 }
 
 impl<'a> Checker<'a> {
-    pub fn new(tree: &'a ParseTree<'a>) -> Self {
+    pub const fn new(tree: &'a ParseTree<'a>) -> Self {
         Checker {
             errors: vec![],
             tree,
@@ -20,7 +20,7 @@ impl<'a> Checker<'a> {
         for statement in &root.statements {
             match statement {
                 PStatement::Expression { expression } => {
-                    self.expression(&expression);
+                    self.expression(expression);
                 }
                 PStatement::Binding {
                     binding_type: _,
@@ -29,7 +29,7 @@ impl<'a> Checker<'a> {
                 } => {
                     let identifier = identifier.name();
                     if let Some(value) = value {
-                        let t_holder = self.expression(&value);
+                        let t_holder = self.expression(value);
                         types.insert(identifier.to_string(), t_holder.kind);
                     }
                 }
@@ -67,7 +67,7 @@ impl<'a> Checker<'a> {
                                     got: expr_type,
                                     expected: previous_type,
                                 },
-                            })
+                            });
                         }
                     } else {
                         last_type = Some(expr_type.kind);
@@ -77,7 +77,7 @@ impl<'a> Checker<'a> {
                 let t = last_type.unwrap_or(TsType::Any);
                 TsTypeHolder {
                     kind: t,
-                    holding_for: &expression,
+                    holding_for: expression,
                 }
             }
         }
@@ -158,7 +158,7 @@ impl<'a> From<&PLiteralPrimitive<'a>> for TsType<'a> {
 }
 
 impl<'a> TsType<'a> {
-    fn contains(&self, b: &TsType<'a>) -> bool {
+    fn contains(&self, b: &Self) -> bool {
         match (self, b) {
             (TsType::Any, _) => true,
             (a, TsType::Literal(l)) => *a == l.wider(),
@@ -169,14 +169,14 @@ impl<'a> TsType<'a> {
 }
 
 impl<'a> TsLiteral<'a> {
-    fn wider(&self) -> TsType<'a> {
+    const fn wider(&self) -> TsType<'a> {
         match self {
             TsLiteral::String { value: _ } => TsType::String,
             TsLiteral::Number { value: _ } => TsType::Number,
         }
     }
 
-    fn is_of_type(&self, b: &TsLiteral<'a>) -> bool {
+    const fn is_of_type(&self, b: &Self) -> bool {
         match (self, b) {
             (TsLiteral::String { .. }, TsLiteral::String { .. }) => true,
             (TsLiteral::Number { .. }, TsLiteral::Number { .. }) => true,

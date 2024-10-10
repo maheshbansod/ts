@@ -20,25 +20,25 @@ pub fn interactive() -> Result<(), Box<dyn Error>> {
         let parser = Parser::new(tokenizer);
         match parser.parse() {
             Ok((tree, errors)) => {
-                if !errors.is_empty() {
-                    println!("Errors:");
-                    for error in errors {
-                        println!("Error: {error}");
-                    }
-                } else {
+                if errors.is_empty() {
                     // no errors, let's type check?
                     let checker = Checker::new(&tree);
                     let (errors, types) = checker.check();
                     if !errors.is_empty() {
                         println!("Errors:");
-                        for error in errors.iter() {
+                        for error in &errors {
                             println!("Error: {error:?}");
                         }
                     }
 
                     println!("Type information: ");
-                    for (i, t) in types.iter() {
-                        println!("i: {:?}, type: {:?}", i, t);
+                    for (i, t) in &types {
+                        println!("i: {i:?}, type: {t:?}");
+                    }
+                } else {
+                    println!("Errors:");
+                    for error in errors {
+                        println!("Error: {error}");
                     }
                 }
             }

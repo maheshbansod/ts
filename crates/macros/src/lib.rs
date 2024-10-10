@@ -43,7 +43,7 @@ pub fn make_operators(input: TokenStream) -> TokenStream {
 
     // enum construction
     let my_enum = quote! {
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, PartialEq, Eq)]
         pub enum POperatorKind {
             #(
                 #doc_comments

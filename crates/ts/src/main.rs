@@ -44,9 +44,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                     if errors.is_empty() {
                         println!("No checker errors ✅");
                     } else {
-                        println!("❌ Type checking Errors: {:?}", errors);
+                        println!("❌ Type checking Errors: {errors:?}");
                     }
-                    println!("Types: {:?}", types);
+                    println!("Types: {types:?}");
                 }
                 Err(err) => {
                     println!("❌ Error while parsing");

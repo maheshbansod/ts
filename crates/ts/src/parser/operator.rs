@@ -23,7 +23,7 @@ make_operators!(
     (infix, MemberAccess, Dot, "->")
 );
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct POperator<'a> {
     pub kind: POperatorKind,
     pub token: Token<'a>,

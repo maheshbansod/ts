@@ -191,7 +191,8 @@ impl<'a> Debug for PStatement<'a> {
                 _ => Debug::fmt(&self, f),
             }
         } else {
-            write!(f, "{self:?}")
+            let s = self;
+            write!(f, "{s:?}")
         }
     }
 }
@@ -281,13 +282,13 @@ enum PObjectKey<'a> {
     Literal(PLiteralPrimitive<'a>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct PIdentifier<'a> {
     token: Token<'a>,
 }
 
 impl<'a> PIdentifier<'a> {
-    pub fn name(&self) -> &str {
+    pub const fn name(&self) -> &str {
         self.token.lexeme()
     }
 }
@@ -314,7 +315,7 @@ pub struct PFunction<'a> {
     body: Vec<PStatement<'a>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum BindingType {
     Let,
     Const,
