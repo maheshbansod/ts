@@ -11,6 +11,7 @@ pub enum TokenKind {
     Decrement,
     /// ... operator
     Destructure,
+    Dot,
     Else,
     Equals,
     Function,
@@ -290,9 +291,9 @@ impl<'a> Tokenizer<'a> {
             Some((first, '?')) => {
                 Some(self.match_token(it_clone, TokenKind::QuestionMark, first, first))
             }
-            Some((first, '.')) => {
-                self.merge_rest_in_token(it_clone, first, "..", TokenKind::Destructure)
-            }
+            Some((first, '.')) => self
+                .merge_rest_in_token(it_clone.clone(), first, "..", TokenKind::Destructure)
+                .or_else(|| Some(self.match_token(it_clone, TokenKind::Dot, first, first))),
             _ => None,
         }
     }
@@ -751,7 +752,7 @@ x
 
     #[test]
     fn operators() {
-        let code = "+ - * / ; , : ... [ ] ++ -- ? == != !";
+        let code = "+ - * / ; , : ... [ ] ++ -- ? == != ! .";
         let tokenizer = Tokenizer::new(code);
         let expected = vec![
             "Plus",
@@ -770,6 +771,7 @@ x
             "Equals",
             "NotEquals",
             "Exclamation",
+            "Dot",
         ];
         let actual = tokenizer.map(|t| t.to_string()).collect::<Vec<_>>();
         assert_eq!(expected, actual);
