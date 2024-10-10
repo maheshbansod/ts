@@ -7,7 +7,11 @@ mod literal;
 mod object;
 mod operator;
 
-use std::{error::Error, fmt::Display, iter::Peekable};
+use std::{
+    error::Error,
+    fmt::{Debug, Display},
+    iter::Peekable,
+};
 
 use crate::tokenizer::{Token, TokenKind, Tokenizer};
 
@@ -142,12 +146,12 @@ pub struct ParseTree<'a> {
     pub root: ParseTreeRoot<'a>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct ParseTreeRoot<'a> {
     pub statements: Vec<PStatement<'a>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum PStatement<'a> {
     Binding {
         binding_type: BindingType,
@@ -163,6 +167,33 @@ pub enum PStatement<'a> {
     If {
         statement: PIfElseStatement<'a>,
     },
+}
+
+impl Debug for ParseTreeRoot<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            f.debug_struct("ParseTreeRoot")
+                .field("statements", &format_args!("{:#?}", self.statements))
+                .finish()
+        } else {
+            f.debug_struct("ParseTreeRoot")
+                .field("statement", &self.statements)
+                .finish()
+        }
+    }
+}
+
+impl<'a> Debug for PStatement<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            match self {
+                PStatement::Expression { expression } => write!(f, "expr({expression})"),
+                _ => Debug::fmt(&self, f),
+            }
+        } else {
+            write!(f, "{self:?}")
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -350,8 +381,11 @@ impl<'a> Display for PFunction<'a> {
 }
 
 impl<'a> Display for PStatement<'a> {
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PStatement::Expression { expression } => writeln!(f, "{expression}"),
+            _ => Debug::fmt(&self, f),
+        }
     }
 }
 
