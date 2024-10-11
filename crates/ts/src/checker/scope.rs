@@ -4,7 +4,7 @@ use crate::parser::{BindingType, PIdentifier};
 
 use super::TsTypeHolder;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TsScope<'a> {
     symbols: HashMap<String, TsSymbol<'a>>,
 }
@@ -16,6 +16,10 @@ impl<'a> TsScope<'a> {
 
     pub fn symbols(&self) -> &HashMap<String, TsSymbol<'a>> {
         &self.symbols
+    }
+
+    pub fn add_symbol(&mut self, id: &str, symbol: TsSymbol<'a>) {
+        self.symbols.insert(id.into(), symbol);
     }
 }
 

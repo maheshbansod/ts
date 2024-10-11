@@ -22,7 +22,7 @@ impl<'a> Checker<'a> {
     }
     pub fn check(mut self) -> (Vec<TsError<'a>>, TsScope<'a>) {
         let root = &self.tree.root;
-        let mut scope = HashMap::new();
+        self.add_scope();
         for statement in &root.statements {
             match statement {
                 PStatement::Expression { expression } => {
@@ -37,13 +37,14 @@ impl<'a> Checker<'a> {
                     if let Some(value) = value {
                         let ts_type = self.expression(value);
                         let sym = TsSymbol::new(binding_type, identifier, ts_type);
-                        scope.insert(identifier_name.to_string(), sym);
+                        self.add_to_scope(&identifier_name.to_string(), sym);
                     }
                 }
                 _ => todo!(),
             };
         }
-        let scope = TsScope::new(scope);
+
+        let scope = self.drop_scope().unwrap(); // todo: later only return exported ones i guess
 
         (self.errors, scope)
     }
@@ -138,6 +139,19 @@ impl<'a> Checker<'a> {
             }
         }
         None
+    }
+
+    fn add_scope(&mut self) {
+        self.scopes.push(TsScope::default())
+    }
+
+    fn drop_scope(&mut self) -> Option<TsScope<'a>> {
+        self.scopes.pop()
+    }
+
+    fn add_to_scope(&mut self, id: &str, symbol: TsSymbol<'a>) {
+        let scope = self.scopes.last_mut().unwrap(); // todo: error handling? or panic?
+        scope.add_symbol(id, symbol);
     }
 }
 
@@ -320,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn ident_types() {
+    fn binding_types() {
         let code = "
 let a = 4 + 4;
 let b = 'star'";
@@ -334,7 +348,32 @@ let b = 'star'";
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: number");
         expected_types.insert("b".to_string(), "let b: `star`");
-        for (id, symbol) in scope.symbols() {
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), 2);
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn ident_types() {
+        let code = "
+let a = 4 + 4;
+let b = a";
+        let tok = Tokenizer::new(code);
+        let parser = Parser::new(tok);
+        let (tree, errors) = parser.parse().unwrap();
+        assert!(errors.is_empty());
+        let checker = Checker::new(&tree);
+        let (errors, scope) = checker.check();
+        assert!(errors.is_empty());
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: number");
+        expected_types.insert("b".to_string(), "let b: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), 2);
+        for (id, symbol) in symbols {
             let id = id.clone();
             assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
         }
