@@ -23,7 +23,7 @@ pub fn interactive() -> Result<(), Box<dyn Error>> {
                 if errors.is_empty() {
                     // no errors, let's type check?
                     let checker = Checker::new(&tree);
-                    let (errors, types) = checker.check();
+                    let (errors, scope) = checker.check();
                     if !errors.is_empty() {
                         println!("Errors:");
                         for error in &errors {
@@ -32,7 +32,7 @@ pub fn interactive() -> Result<(), Box<dyn Error>> {
                     }
 
                     println!("Type information: ");
-                    for (i, t) in &types {
+                    for (i, t) in scope.symbols() {
                         println!("i: {i:?}, type: {t:?}");
                     }
                 } else {

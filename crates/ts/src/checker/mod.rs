@@ -1,10 +1,15 @@
-use std::collections::HashMap;
+mod scope;
+
+use std::{collections::HashMap, fmt::Display};
+
+use scope::{TsScope, TsSymbol};
 
 use crate::parser::{PAtom, PExpression, PLiteralPrimitive, PStatement, ParseTree};
 
 pub struct Checker<'a> {
     tree: &'a ParseTree<'a>,
     pub errors: Vec<TsError<'a>>,
+    scopes: Vec<TsScope<'a>>,
 }
 
 impl<'a> Checker<'a> {
@@ -12,41 +17,54 @@ impl<'a> Checker<'a> {
         Checker {
             errors: vec![],
             tree,
+            scopes: vec![],
         }
     }
-    pub fn check(mut self) -> (Vec<TsError<'a>>, HashMap<String, TsType<'a>>) {
+    pub fn check(mut self) -> (Vec<TsError<'a>>, TsScope<'a>) {
         let root = &self.tree.root;
-        let mut types = HashMap::new();
+        let mut scope = HashMap::new();
         for statement in &root.statements {
             match statement {
                 PStatement::Expression { expression } => {
                     self.expression(expression);
                 }
                 PStatement::Binding {
-                    binding_type: _,
+                    binding_type,
                     identifier,
                     value,
                 } => {
-                    let identifier = identifier.name();
+                    let identifier_name = identifier.name();
                     if let Some(value) = value {
-                        let t_holder = self.expression(value);
-                        types.insert(identifier.to_string(), t_holder.kind);
+                        let ts_type = self.expression(value);
+                        let sym = TsSymbol::new(binding_type, identifier, ts_type);
+                        scope.insert(identifier_name.to_string(), sym);
                     }
                 }
                 _ => todo!(),
             };
         }
+        let scope = TsScope::new(scope);
 
-        (self.errors, types)
+        (self.errors, scope)
     }
 
-    pub fn expression<'b>(&mut self, expression: &'a PExpression<'a>) -> TsTypeHolder<'b, 'a> {
+    pub fn expression<'b>(&mut self, expression: &'b PExpression<'a>) -> TsTypeHolder<'a, 'b> {
         match expression {
             PExpression::Atom(ref atom) => match atom {
                 PAtom::Literal(literal) => TsTypeHolder {
                     kind: literal.into(),
                     holding_for: expression,
                 },
+                PAtom::Identifier(identifier) => {
+                    // let's check the type of this identifier!
+                    let default_type = TsTypeHolder {
+                        kind: TsType::Any,
+                        holding_for: expression,
+                    };
+                    return self
+                        .current_scope_variable(&identifier.to_string())
+                        .unwrap_or(default_type);
+                }
                 _ => todo!(),
             },
             PExpression::Cons(_operator, args) => {
@@ -107,6 +125,20 @@ impl<'a> Checker<'a> {
             }
         }
     }
+
+    fn current_scope_variable(&self, id: &str) -> Option<TsTypeHolder<'a, 'a>> {
+        if let Some(scope) = self.scopes.last() {
+            let symbols = scope.symbols();
+            if let Some(symbol) = symbols.get(id) {
+                let t = symbol.ts_type();
+                return Some(TsTypeHolder {
+                    kind: t.kind,
+                    holding_for: t.holding_for,
+                });
+            }
+        }
+        None
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -123,7 +155,7 @@ pub enum TypeErrorKind<'a> {
 }
 
 /// An entity that has a typescript type
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TsTypeHolder<'a, 'b> {
     kind: TsType<'a>,
     holding_for: &'a PExpression<'b>,
@@ -139,10 +171,31 @@ pub enum TsType<'a> {
     String,
 }
 
+impl<'a> Display for TsType<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TsType::Any => write!(f, "any"),
+            TsType::Number => write!(f, "number"),
+            TsType::String => write!(f, "string"),
+            TsType::Literal(literal) => write!(f, "{literal}"),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TsLiteral<'a> {
     Number { value: f32 },
     String { value: &'a str },
+}
+
+impl<'a> Display for TsLiteral<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TsLiteral::Number { value } => write!(f, "{value}"),
+            TsLiteral::String { value } => write!(f, "`{value}`"), // TODO: we might wanna escape
+                                                                   // backticks
+        }
+    }
 }
 
 impl<'a> From<&PLiteralPrimitive<'a>> for TsType<'a> {
@@ -187,6 +240,8 @@ impl<'a> TsLiteral<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use pretty_assertions::assert_eq;
 
     use crate::{
@@ -236,7 +291,7 @@ mod tests {
         let (tree, errors) = parser.parse().unwrap();
         assert!(errors.is_empty());
         let checker = Checker::new(&tree);
-        let (errors, types) = checker.check();
+        let (errors, scope) = checker.check();
         let expr = match &tree.root.statements[0] {
             PStatement::Expression { expression } => match expression {
                 PExpression::Cons(_op, args) => {
@@ -261,7 +316,28 @@ mod tests {
             let expected_error = expected_errors.next().unwrap();
             assert_eq!(error, expected_error);
         }
-        assert!(types.is_empty());
+        assert!(scope.symbols().is_empty());
+    }
+
+    #[test]
+    fn ident_types() {
+        let code = "
+let a = 4 + 4;
+let b = 'star'";
+        let tok = Tokenizer::new(code);
+        let parser = Parser::new(tok);
+        let (tree, errors) = parser.parse().unwrap();
+        assert!(errors.is_empty());
+        let checker = Checker::new(&tree);
+        let (errors, scope) = checker.check();
+        assert!(errors.is_empty());
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: number");
+        expected_types.insert("b".to_string(), "let b: `star`");
+        for (id, symbol) in scope.symbols() {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
     }
 
     fn parse_expr(code: &str) -> TreeWrapper {

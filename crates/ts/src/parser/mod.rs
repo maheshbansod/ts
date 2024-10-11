@@ -321,6 +321,15 @@ pub enum BindingType {
     Const,
 }
 
+impl Display for BindingType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BindingType::Let => write!(f, "let"),
+            BindingType::Const => write!(f, "const"),
+        }
+    }
+}
+
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParserError<'a> {
