@@ -169,7 +169,7 @@ pub enum TypeErrorKind<'a> {
 }
 
 /// An entity that has a typescript type
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct TsTypeHolder<'a, 'b> {
     kind: TsType<'a>,
     holding_for: &'a PExpression<'b>,
