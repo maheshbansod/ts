@@ -10,10 +10,6 @@ pub struct TsScope<'a> {
 }
 
 impl<'a> TsScope<'a> {
-    pub fn new(symbols: HashMap<String, TsSymbol<'a>>) -> Self {
-        Self { symbols }
-    }
-
     pub fn symbols(&self) -> &HashMap<String, TsSymbol<'a>> {
         &self.symbols
     }
