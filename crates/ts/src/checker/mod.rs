@@ -4,8 +4,12 @@ use std::fmt::Display;
 
 use scope::{TsScope, TsSymbol};
 
-use crate::parser::{
-    PAtom, PExpression, PLiteralPrimitive, POperator, POperatorKind, PStatement, ParseTree,
+use crate::{
+    parser::{
+        BindingType, PAtom, PExpression, PLiteralPrimitive, POperator, POperatorKind, PStatement,
+        ParseTree,
+    },
+    tokenizer::Token,
 };
 
 pub struct Checker<'a> {
@@ -37,7 +41,15 @@ impl<'a> Checker<'a> {
                 } => {
                     let identifier_name = identifier.name();
                     if let Some(value) = value {
-                        let ts_type = self.expression(value);
+                        let mut ts_type = self.expression(value);
+                        if matches!(binding_type, BindingType::Let) {
+                            match ts_type.kind {
+                                TsType::Literal(literal) => {
+                                    ts_type.kind = literal.wider();
+                                }
+                                _ => {}
+                            }
+                        }
                         let sym = TsSymbol::new(binding_type, identifier, ts_type);
                         if let Err(e) = self.add_to_scope(&identifier_name.to_string(), sym) {
                             self.errors.push(e)
@@ -68,7 +80,7 @@ impl<'a> Checker<'a> {
                         holding_for: expression,
                     };
                     return self
-                        .current_scope_variable(&identifier.to_string())
+                        .current_scope_variable_type(&identifier.to_string())
                         .unwrap_or(default_type);
                 }
                 _ => todo!(),
@@ -90,61 +102,86 @@ impl<'a> Checker<'a> {
         operator: &'b POperator<'a>,
         args: &'a Vec<PExpression<'a>>,
     ) -> Option<TsType<'a>> {
-        match operator.kind {
-            POperatorKind::Assign => {
-                // can't match to a wider type only narrower type
-                let lhs = &args[0];
-                let rhs = &args[1];
+        let (mut errors, ts_type) = {
+            let mut errors = vec![];
+            let ts_type = match operator.kind {
+                POperatorKind::Assign => {
+                    // can't match to a wider type only narrower type
+                    let lhs = &args[0];
+                    let rhs = &args[1];
+                    let rhs_type = self.expression(&rhs);
 
-                // todo: lhs needs to be lvalue
-                let lhs_type = match lhs {
-                    PExpression::Atom(PAtom::Identifier(identifier)) => self
-                        .current_scope_variable(&identifier.to_string())
-                        .unwrap_or(TsTypeHolder {
-                            kind: TsType::Any,
-                            holding_for: &lhs,
-                        }),
-                    _ => todo!(),
-                };
-
-                let rhs_type = self.expression(&rhs);
-                if !lhs_type.kind.contains(&rhs_type.kind) {
-                    self.errors.push(TsError {
-                        kind: TypeErrorKind::ExpectedType {
-                            got: rhs_type,
-                            expected: lhs_type.kind,
-                        },
-                    });
-                }
-                Some(lhs_type.kind)
-            }
-            _ => {
-                // Naive algo just checks if all args have same type
-
-                let mut last_type = None;
-                for arg in args {
-                    let expr_type = self.expression(arg);
-
-                    if let Some(previous_type) = last_type {
-                        if let Some(common_type) =
-                            Checker::merge_types(previous_type, expr_type.kind)
-                        {
-                            last_type = Some(common_type);
-                        } else {
-                            self.errors.push(TsError {
-                                kind: TypeErrorKind::ExpectedType {
-                                    got: expr_type,
-                                    expected: previous_type,
-                                },
-                            });
+                    // todo: lhs needs to be lvalue
+                    let (is_reassignable, lhs_type) = match lhs {
+                        PExpression::Atom(PAtom::Identifier(identifier)) => {
+                            if let Some(symbol) =
+                                self.current_scope_variable(&identifier.to_string())
+                            {
+                                let ts_info = symbol.ts_type();
+                                let is_reassignable = symbol.is_reassignable();
+                                if !is_reassignable {
+                                    errors.push(TsError {
+                                        kind: TypeErrorKind::ReassignConstant {
+                                            symbol: symbol.clone(),
+                                            assign_token: operator.token.clone(),
+                                        },
+                                    });
+                                }
+                                (is_reassignable, ts_info)
+                            } else {
+                                (
+                                    true,
+                                    &TsTypeHolder {
+                                        kind: TsType::Any,
+                                        holding_for: &lhs,
+                                    },
+                                )
+                            }
                         }
-                    } else {
-                        last_type = Some(expr_type.kind);
+                        _ => todo!(),
+                    };
+
+                    if is_reassignable && !lhs_type.kind.contains(&rhs_type.kind) {
+                        errors.push(TsError {
+                            kind: TypeErrorKind::ExpectedType {
+                                got: rhs_type,
+                                expected: lhs_type.kind,
+                            },
+                        });
                     }
+                    Some(lhs_type.kind)
                 }
-                last_type
-            }
-        }
+                _ => {
+                    // Naive algo just checks if all args have same type
+
+                    let mut last_type = None;
+                    for arg in args {
+                        let expr_type = self.expression(arg);
+
+                        if let Some(previous_type) = last_type {
+                            if let Some(common_type) =
+                                Checker::merge_types(previous_type, expr_type.kind)
+                            {
+                                last_type = Some(common_type);
+                            } else {
+                                self.errors.push(TsError {
+                                    kind: TypeErrorKind::ExpectedType {
+                                        got: expr_type,
+                                        expected: previous_type,
+                                    },
+                                });
+                            }
+                        } else {
+                            last_type = Some(expr_type.kind);
+                        }
+                    }
+                    last_type
+                }
+            };
+            (errors, ts_type)
+        };
+        self.errors.append(&mut errors);
+        ts_type
     }
 
     fn merge_types(a: TsType<'a>, b: TsType<'a>) -> Option<TsType<'a>> {
@@ -172,16 +209,23 @@ impl<'a> Checker<'a> {
         }
     }
 
-    fn current_scope_variable(&self, id: &str) -> Option<TsTypeHolder<'a, 'a>> {
+    fn current_scope_variable(&self, id: &str) -> Option<&TsSymbol<'a>> {
         if let Some(scope) = self.scopes.last() {
             let symbols = scope.symbols();
             if let Some(symbol) = symbols.get(id) {
-                let t = symbol.ts_type();
-                return Some(TsTypeHolder {
-                    kind: t.kind,
-                    holding_for: t.holding_for,
-                });
+                return Some(symbol);
             }
+        }
+        None
+    }
+
+    fn current_scope_variable_type(&self, id: &str) -> Option<TsTypeHolder<'a, 'a>> {
+        if let Some(symbol) = self.current_scope_variable(id) {
+            let ts_info = symbol.ts_type();
+            return Some(TsTypeHolder {
+                kind: ts_info.kind,
+                holding_for: ts_info.holding_for,
+            });
         }
         None
     }
@@ -226,13 +270,17 @@ pub enum TypeErrorKind<'a> {
         got: TsTypeHolder<'a, 'a>,
         expected: TsType<'a>,
     },
+    ReassignConstant {
+        symbol: TsSymbol<'a>,
+        assign_token: Token<'a>,
+    },
     RedeclareBlockScoped {
         symbol: TsSymbol<'a>,
     },
 }
 
 /// An entity that has a typescript type
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TsTypeHolder<'a, 'b> {
     kind: TsType<'a>,
     holding_for: &'a PExpression<'b>,
@@ -404,7 +452,7 @@ let b = 'star'";
         assert!(errors.is_empty());
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: number");
-        expected_types.insert("b".to_string(), "let b: `star`");
+        expected_types.insert("b".to_string(), "let b: string");
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), 2);
         for (id, symbol) in symbols {
@@ -487,7 +535,7 @@ let a = a";
     #[test]
     fn invalid_assignment() {
         let code = "
-    const a = 4 + 4;
+    let a = 4 + 4;
     a = \"4\"
     ";
         let wrapper = make_parse_tree(code);
@@ -498,6 +546,32 @@ let a = a";
                 expected: TsType::Number,
                 got,
             } if got.kind == TsType::Literal(TsLiteral::String { value: "4" }) => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), 1);
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn reassign_const() {
+        let code = "
+    const a = 4 + 4;
+    a = 2
+    ";
+        let wrapper = make_parse_tree(code);
+        let (errors, scope) = wrapper.ts_check();
+        assert_eq!(errors.len(), 1);
+        match errors[0].kind {
+            TypeErrorKind::ReassignConstant {
+                symbol: _,
+                assign_token: _,
+            } => {}
             _ => panic!("Unexpected {:?}", errors[0]),
         }
         let mut expected_types = HashMap::<String, _>::new();

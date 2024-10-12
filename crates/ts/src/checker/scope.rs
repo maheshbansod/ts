@@ -27,7 +27,7 @@ impl<'a> TsScope<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TsSymbol<'a> {
     binding_type: &'a BindingType,
     identifier: &'a PIdentifier<'a>,
