@@ -68,10 +68,13 @@ pub fn make_operators(input: TokenStream) -> TokenStream {
 
     let mut i = 1;
     for operator in operators.iter() {
-        match operator.kind {
-            POperatorKind::In => {
-                // TODO: handle associativity
-                infix_operator_bps.push((Some(i), Some(i + 1)));
+        match &operator.kind {
+            POperatorKind::In(associativity) => {
+                if associativity == &OperatorAssociativity::Left {
+                    infix_operator_bps.push((Some(i), Some(i + 1)));
+                } else {
+                    infix_operator_bps.push((Some(i + 1), Some(i)));
+                }
             }
             POperatorKind::Pre => {
                 prefix_operator_bps.push((None::<u8>, Some(i + 1)));
@@ -83,7 +86,10 @@ pub fn make_operators(input: TokenStream) -> TokenStream {
         i += 2;
     }
 
-    let infix_operators = OperatorGroup::from_operator_inputs(POperatorKind::In, &operators);
+    let infix_operators = OperatorGroup::from_operator_inputs(
+        POperatorKind::In(OperatorAssociativity::Left),
+        &operators,
+    );
     let infix_operator_parse_impl =
         generate_operator_parse_impl(infix_operators, infix_operator_bps);
     let prefix_operators = OperatorGroup::from_operator_inputs(POperatorKind::Pre, &operators);
@@ -151,9 +157,30 @@ impl Parse for POperatorKind {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let ident = input.parse::<Ident>()?;
         let kind = match ident.to_string().as_str() {
-            "infix" => POperatorKind::In,
+            "infix" => {
+                if input.peek(Token![<]) {
+                    input.parse::<Token![<]>()?;
+                    let assoc = input.parse::<OperatorAssociativity>()?;
+                    input.parse::<Token![>]>()?;
+                    POperatorKind::In(assoc)
+                } else {
+                    POperatorKind::In(OperatorAssociativity::Left)
+                }
+            }
             "pre" => POperatorKind::Pre,
             "post" => POperatorKind::Post,
+            _ => panic!("Unexpected token {:?}", ident),
+        };
+        Ok(kind)
+    }
+}
+
+impl Parse for OperatorAssociativity {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let ident = input.parse::<Ident>()?;
+        let kind = match ident.to_string().as_str() {
+            "left" => OperatorAssociativity::Left,
+            "right" => OperatorAssociativity::Right,
             _ => panic!("Unexpected token {:?}", ident),
         };
         Ok(kind)
@@ -258,7 +285,7 @@ impl OperatorGroup {
     fn from_operator_inputs(kind: POperatorKind, operators: &Vec<POperatorDataInput>) -> Self {
         let (operator_idents, token_kinds) = operators
             .iter()
-            .filter(|op| op.kind == kind)
+            .filter(|op| op.kind.is_similar_to(&kind))
             .map(|op| (op.operator_variant.clone(), op.token_kind.clone()))
             .collect();
         OperatorGroup {
@@ -269,19 +296,46 @@ impl OperatorGroup {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+enum OperatorAssociativity {
+    Left,
+    Right,
+}
+
+#[derive(Clone, PartialEq, Eq)]
 enum POperatorKind {
     Post,
     Pre,
-    In,
+    In(OperatorAssociativity),
+}
+
+impl POperatorKind {
+    fn is_similar_to(&self, kind: &POperatorKind) -> bool {
+        match kind {
+            POperatorKind::In(_assoc) => match self {
+                POperatorKind::In(_assoc) => true,
+                _ => false,
+            },
+            _ => self == kind,
+        }
+    }
 }
 
 impl Display for POperatorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::In => write!(f, "infix"),
+            Self::In(_assoc) => write!(f, "infix"),
             Self::Pre => write!(f, "prefix"),
             Self::Post => write!(f, "postfix"),
+        }
+    }
+}
+
+impl Display for OperatorAssociativity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OperatorAssociativity::Left => write!(f, "left"),
+            OperatorAssociativity::Right => write!(f, "right"),
         }
     }
 }

@@ -7,7 +7,7 @@ use crate::tokenizer::{Token, TokenKind};
 use super::Parser;
 
 make_operators!(
-    (infix, Assign, Assign, "=", "Assignment"),
+    (infix <right>, Assign, Assign, "=", "Assignment"),
     (infix, Conditional, QuestionMark, "?:", "The ?: operator"),
     (infix, Equals, Equals, "==", "comparison operator"),
     (infix, BinaryAdd, Plus, "+"),

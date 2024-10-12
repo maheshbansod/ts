@@ -628,4 +628,13 @@ mod tests {
         assert_eq!(tree.to_string(), "= (a b )");
         Ok(())
     }
+
+    #[test]
+    fn assign_assoc<'a>() -> ParseResult<'a, ()> {
+        let code = "a = b = c";
+        let mut parser = Parser::new(Tokenizer::new(code));
+        let tree = parser.parse_expression()?;
+        assert_eq!(tree.to_string(), "= (a = (b c ) )");
+        Ok(())
+    }
 }
