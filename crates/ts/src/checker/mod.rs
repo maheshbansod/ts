@@ -1,6 +1,6 @@
 mod scope;
 
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
 use scope::{TsScope, TsSymbol};
 
@@ -37,7 +37,9 @@ impl<'a> Checker<'a> {
                     if let Some(value) = value {
                         let ts_type = self.expression(value);
                         let sym = TsSymbol::new(binding_type, identifier, ts_type);
-                        self.add_to_scope(&identifier_name.to_string(), sym);
+                        if let Err(e) = self.add_to_scope(&identifier_name.to_string(), sym) {
+                            self.errors.push(e)
+                        }
                     }
                 }
                 _ => todo!(),
@@ -149,9 +151,24 @@ impl<'a> Checker<'a> {
         self.scopes.pop()
     }
 
-    fn add_to_scope(&mut self, id: &str, symbol: TsSymbol<'a>) {
-        let scope = self.scopes.last_mut().unwrap(); // todo: error handling? or panic?
-        scope.add_symbol(id, symbol);
+    fn add_to_scope(&mut self, id: &str, symbol: TsSymbol<'a>) -> Result<(), TsError<'a>> {
+        let scope = self
+            .scopes
+            .last_mut()
+            .expect("A scope must always be present");
+        if scope.exists(id) {
+            if symbol.is_redeclarable() {
+                scope.add_symbol(id, symbol);
+            } else {
+                return Err(TsError {
+                    kind: TypeErrorKind::CannotRedeclare { symbol },
+                });
+            }
+        } else {
+            scope.add_symbol(id, symbol);
+        }
+
+        Ok(())
     }
 }
 
@@ -165,6 +182,9 @@ pub enum TypeErrorKind<'a> {
     ExpectedType {
         got: TsTypeHolder<'a, 'a>,
         expected: TsType<'a>,
+    },
+    CannotRedeclare {
+        symbol: TsSymbol<'a>,
     },
 }
 
@@ -399,6 +419,31 @@ let b = a";
             };
             let exp = checker.expression(&s);
             exp.kind
+        }
+    }
+
+    #[test]
+    fn error_redeclared_let() {
+        let code = "
+let a = 4 + 4;
+let a = a";
+        let tok = Tokenizer::new(code);
+        let parser = Parser::new(tok);
+        let (tree, errors) = parser.parse().unwrap();
+        assert!(errors.is_empty());
+        let checker = Checker::new(&tree);
+        let (errors, scope) = checker.check();
+        match errors[0].kind {
+            TypeErrorKind::CannotRedeclare { symbol: _ } => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), 1);
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
         }
     }
 }

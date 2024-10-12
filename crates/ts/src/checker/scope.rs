@@ -21,9 +21,13 @@ impl<'a> TsScope<'a> {
     pub fn add_symbol(&mut self, id: &str, symbol: TsSymbol<'a>) {
         self.symbols.insert(id.into(), symbol);
     }
+
+    pub fn exists(&self, id: &str) -> bool {
+        self.symbols.contains_key(id)
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TsSymbol<'a> {
     binding_type: &'a BindingType,
     identifier: &'a PIdentifier<'a>,
@@ -48,6 +52,15 @@ impl<'a> TsSymbol<'a> {
         'a: 'b,
     {
         &self.ts_type
+    }
+
+    pub fn is_redeclarable(&self) -> bool {
+        // todo: fix it when i add var
+        false
+    }
+
+    pub fn is_reassignable(&self) -> bool {
+        !matches!(self.binding_type, BindingType::Const)
     }
 
     #[cfg(test)]
