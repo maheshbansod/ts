@@ -7,6 +7,7 @@ mod literal;
 mod object;
 mod operator;
 
+pub use binding::BindingType;
 pub use operator::POperator;
 pub use operator::POperatorKind;
 
@@ -318,21 +319,6 @@ pub struct PFunction<'a> {
     body: Vec<PStatement<'a>>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum BindingType {
-    Let,
-    Const,
-}
-
-impl Display for BindingType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Let => write!(f, "let"),
-            Self::Const => write!(f, "const"),
-        }
-    }
-}
-
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParserError<'a> {
@@ -421,18 +407,6 @@ impl<'a> Display for ParserError<'a> {
                 write!(f, "Expected token type {expected:?}, got {got:?}")
             }
             ParserError::ExpectedLiteral => todo!(),
-        }
-    }
-}
-
-impl TryFrom<TokenKind> for BindingType {
-    type Error = ();
-
-    fn try_from(value: TokenKind) -> Result<Self, Self::Error> {
-        match value {
-            TokenKind::Const => Ok(Self::Const),
-            TokenKind::Let => Ok(Self::Let),
-            _ => Err(()),
         }
     }
 }
