@@ -7,6 +7,9 @@ mod literal;
 mod object;
 mod operator;
 
+pub use operator::POperator;
+pub use operator::POperatorKind;
+
 use std::{
     error::Error,
     fmt::{Debug, Display},
