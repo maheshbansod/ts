@@ -51,6 +51,7 @@ impl<'a> Checker<'a> {
         (self.errors, scope)
     }
 
+    /// Resolves type of an expression
     pub fn expression<'b>(&mut self, expression: &'b PExpression<'a>) -> TsTypeHolder<'a, 'b> {
         match expression {
             PExpression::Atom(ref atom) => match atom {
@@ -161,7 +162,7 @@ impl<'a> Checker<'a> {
                 scope.add_symbol(id, symbol);
             } else {
                 return Err(TsError {
-                    kind: TypeErrorKind::CannotRedeclare { symbol },
+                    kind: TypeErrorKind::RedeclareBlockScoped { symbol },
                 });
             }
         } else {
@@ -183,7 +184,7 @@ pub enum TypeErrorKind<'a> {
         got: TsTypeHolder<'a, 'a>,
         expected: TsType<'a>,
     },
-    CannotRedeclare {
+    RedeclareBlockScoped {
         symbol: TsSymbol<'a>,
     },
 }
@@ -434,7 +435,7 @@ let a = a";
         let checker = Checker::new(&tree);
         let (errors, scope) = checker.check();
         match errors[0].kind {
-            TypeErrorKind::CannotRedeclare { symbol: _ } => {}
+            TypeErrorKind::RedeclareBlockScoped { symbol: _ } => {}
             _ => panic!("Unexpected {:?}", errors[0]),
         }
         let mut expected_types = HashMap::<String, _>::new();
