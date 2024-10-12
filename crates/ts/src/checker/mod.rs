@@ -285,10 +285,12 @@ mod tests {
         tokenizer::Tokenizer,
     };
 
+    use super::scope::TsScope;
+
     #[test]
     fn unit_number() {
         let code = "4";
-        let wrapper = parse_expr(code);
+        let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
         assert_eq!(t, TsType::Literal(TsLiteral::Number { value: 4.0 }))
     }
@@ -296,7 +298,7 @@ mod tests {
     #[test]
     fn unit_string() {
         let code = "'string'";
-        let wrapper = parse_expr(code);
+        let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
         assert_eq!(t, TsType::Literal(TsLiteral::String { value: "string" }))
     }
@@ -304,7 +306,7 @@ mod tests {
     #[test]
     fn expr_string() {
         let code = "'string' + 'string'";
-        let wrapper = parse_expr(code);
+        let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
         assert_eq!(t, TsType::String)
     }
@@ -312,7 +314,7 @@ mod tests {
     #[test]
     fn expr() {
         let code = "4 + 4";
-        let wrapper = parse_expr(code);
+        let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
         assert_eq!(t, TsType::Number)
     }
@@ -321,13 +323,9 @@ mod tests {
     fn error_different_types() {
         // TODO: this is not an error - maybe instead of merge types, depend on operator more
         let code = "4 + '4'";
-        let tok = Tokenizer::new(code);
-        let parser = Parser::new(tok);
-        let (tree, errors) = parser.parse().unwrap();
-        assert!(errors.is_empty());
-        let checker = Checker::new(&tree);
-        let (errors, scope) = checker.check();
-        let expr = match &tree.root.statements[0] {
+        let tree_wrapper = make_parse_tree(code);
+        let (errors, scope) = tree_wrapper.ts_check();
+        let expr = match &tree_wrapper.tree.root.statements[0] {
             PStatement::Expression { expression } => match expression {
                 PExpression::Cons(_op, args) => {
                     let rhs = &args[1];
@@ -359,12 +357,8 @@ mod tests {
         let code = "
 let a = 4 + 4;
 let b = 'star'";
-        let tok = Tokenizer::new(code);
-        let parser = Parser::new(tok);
-        let (tree, errors) = parser.parse().unwrap();
-        assert!(errors.is_empty());
-        let checker = Checker::new(&tree);
-        let (errors, scope) = checker.check();
+        let tree_wrapper = make_parse_tree(code);
+        let (errors, scope) = tree_wrapper.ts_check();
         assert!(errors.is_empty());
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: number");
@@ -382,12 +376,8 @@ let b = 'star'";
         let code = "
 let a = 4 + 4;
 let b = a";
-        let tok = Tokenizer::new(code);
-        let parser = Parser::new(tok);
-        let (tree, errors) = parser.parse().unwrap();
-        assert!(errors.is_empty());
-        let checker = Checker::new(&tree);
-        let (errors, scope) = checker.check();
+        let tree_wrapper = make_parse_tree(code);
+        let (errors, scope) = tree_wrapper.ts_check();
         assert!(errors.is_empty());
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: number");
@@ -400,7 +390,7 @@ let b = a";
         }
     }
 
-    fn parse_expr(code: &str) -> TreeWrapper {
+    fn make_parse_tree(code: &str) -> TreeWrapper {
         let tok = Tokenizer::new(code);
         let parser = Parser::new(tok);
         let (tree, errors) = parser.parse().unwrap();
@@ -421,6 +411,13 @@ let b = a";
             let exp = checker.expression(&s);
             exp.kind
         }
+
+        fn ts_check<'b>(&'b self) -> (Vec<TsError<'b>>, TsScope<'b>) {
+            let tree = &self.tree;
+            let checker = Checker::new(tree);
+            let (errors, scope) = checker.check();
+            (errors, scope)
+        }
     }
 
     #[test]
@@ -428,12 +425,9 @@ let b = a";
         let code = "
 let a = 4 + 4;
 let a = a";
-        let tok = Tokenizer::new(code);
-        let parser = Parser::new(tok);
-        let (tree, errors) = parser.parse().unwrap();
-        assert!(errors.is_empty());
-        let checker = Checker::new(&tree);
-        let (errors, scope) = checker.check();
+        let wrapper = make_parse_tree(code);
+        let (errors, scope) = wrapper.ts_check();
+        assert_eq!(errors.len(), 1);
         match errors[0].kind {
             TypeErrorKind::RedeclareBlockScoped { symbol: _ } => {}
             _ => panic!("Unexpected {:?}", errors[0]),
