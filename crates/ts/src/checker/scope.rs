@@ -51,8 +51,7 @@ impl<'a> TsSymbol<'a> {
     }
 
     pub const fn is_redeclarable(&self) -> bool {
-        // todo: fix it when i add var
-        false
+        matches!(self.binding_type, BindingType::Var)
     }
 
     pub const fn is_reassignable(&self) -> bool {
