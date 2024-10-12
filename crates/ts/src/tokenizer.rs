@@ -37,6 +37,7 @@ pub enum TokenKind {
     /// Marker for an unknown token - It's expected for the parser to report unexpected token error
     Unknown,
     While,
+    Var,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -221,6 +222,7 @@ impl<'a> Tokenizer<'a> {
             Some((first, 'w')) => {
                 self.merge_rest_in_token(it_clone, first, "hile", TokenKind::While)
             }
+            Some((first, 'v')) => self.merge_rest_in_token(it_clone, first, "ar", TokenKind::Var),
             _ => None,
         }
     }
@@ -775,7 +777,7 @@ x
 
     #[test]
     fn keywords() {
-        let code = "let function const if else while";
+        let code = "let function const if else while var";
         let tokenizer = Tokenizer::new(code);
         let expected_tokens = vec![
             Token::new(TokenKind::Let, TokenLocation { row: 1, column: 1 }, "let"),
@@ -800,6 +802,7 @@ x
                 TokenLocation { row: 1, column: 28 },
                 "while",
             ),
+            Token::new(TokenKind::Var, TokenLocation { row: 1, column: 34 }, "var"),
         ];
         let actual_tokens = tokenizer.collect::<Vec<_>>();
         assert_eq!(actual_tokens, expected_tokens);
