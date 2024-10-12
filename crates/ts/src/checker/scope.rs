@@ -10,7 +10,7 @@ pub struct TsScope<'a> {
 }
 
 impl<'a> TsScope<'a> {
-    pub fn symbols(&self) -> &HashMap<String, TsSymbol<'a>> {
+    pub const fn symbols(&self) -> &HashMap<String, TsSymbol<'a>> {
         &self.symbols
     }
 
@@ -31,7 +31,7 @@ pub struct TsSymbol<'a> {
 }
 
 impl<'a> TsSymbol<'a> {
-    pub fn new(
+    pub const fn new(
         binding_type: &'a BindingType,
         identifier: &'a PIdentifier<'a>,
         ts_type: TsTypeHolder<'a, 'a>,
@@ -43,19 +43,19 @@ impl<'a> TsSymbol<'a> {
         }
     }
 
-    pub fn ts_type<'b>(&self) -> &TsTypeHolder<'a, 'b>
+    pub const fn ts_type<'b>(&self) -> &TsTypeHolder<'a, 'b>
     where
         'a: 'b,
     {
         &self.ts_type
     }
 
-    pub fn is_redeclarable(&self) -> bool {
+    pub const fn is_redeclarable(&self) -> bool {
         // todo: fix it when i add var
         false
     }
 
-    pub fn is_reassignable(&self) -> bool {
+    pub const fn is_reassignable(&self) -> bool {
         !matches!(self.binding_type, BindingType::Const)
     }
 

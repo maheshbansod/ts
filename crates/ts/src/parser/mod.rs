@@ -327,8 +327,8 @@ pub enum BindingType {
 impl Display for BindingType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BindingType::Let => write!(f, "let"),
-            BindingType::Const => write!(f, "const"),
+            Self::Let => write!(f, "let"),
+            Self::Const => write!(f, "const"),
         }
     }
 }

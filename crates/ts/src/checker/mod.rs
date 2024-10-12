@@ -43,16 +43,13 @@ impl<'a> Checker<'a> {
                     if let Some(value) = value {
                         let mut ts_type = self.expression(value);
                         if matches!(binding_type, BindingType::Let) {
-                            match ts_type.kind {
-                                TsType::Literal(literal) => {
-                                    ts_type.kind = literal.wider();
-                                }
-                                _ => {}
+                            if let TsType::Literal(literal) = ts_type.kind {
+                                ts_type.kind = literal.wider();
                             }
                         }
                         let sym = TsSymbol::new(binding_type, identifier, ts_type);
-                        if let Err(e) = self.add_to_scope(&identifier_name.to_string(), sym) {
-                            self.errors.push(e)
+                        if let Err(e) = self.add_to_scope(identifier_name, sym) {
+                            self.errors.push(e);
                         }
                     }
                 }
@@ -104,79 +101,71 @@ impl<'a> Checker<'a> {
     ) -> Option<TsType<'a>> {
         let (mut errors, ts_type) = {
             let mut errors = vec![];
-            let ts_type = match operator.kind {
-                POperatorKind::Assign => {
-                    // can't match to a wider type only narrower type
-                    let lhs = &args[0];
-                    let rhs = &args[1];
-                    let rhs_type = self.expression(&rhs);
+            let ts_type = if operator.kind == POperatorKind::Assign {
+                // can't match to a wider type only narrower type
+                let lhs = &args[0];
+                let rhs = &args[1];
+                let rhs_type = self.expression(rhs);
 
-                    // todo: lhs needs to be lvalue
-                    let (is_reassignable, lhs_type) = match lhs {
-                        PExpression::Atom(PAtom::Identifier(identifier)) => {
-                            if let Some(symbol) =
-                                self.current_scope_variable(&identifier.to_string())
-                            {
-                                let ts_info = symbol.ts_type();
-                                let is_reassignable = symbol.is_reassignable();
-                                if !is_reassignable {
-                                    errors.push(TsError {
-                                        kind: TypeErrorKind::ReassignConstant {
-                                            symbol: symbol.clone(),
-                                            assign_token: operator.token.clone(),
-                                        },
-                                    });
-                                }
-                                (is_reassignable, ts_info)
-                            } else {
-                                (
-                                    true,
-                                    &TsTypeHolder {
-                                        kind: TsType::Any,
-                                        holding_for: &lhs,
-                                    },
-                                )
-                            }
-                        }
-                        _ => todo!(),
-                    };
+                let default_type = TsTypeHolder {
+                    kind: TsType::Any,
+                    holding_for: lhs,
+                };
 
-                    if is_reassignable && !lhs_type.kind.contains(&rhs_type.kind) {
-                        errors.push(TsError {
-                            kind: TypeErrorKind::ExpectedType {
-                                got: rhs_type,
-                                expected: lhs_type.kind,
-                            },
-                        });
-                    }
-                    Some(lhs_type.kind)
-                }
-                _ => {
-                    // Naive algo just checks if all args have same type
-
-                    let mut last_type = None;
-                    for arg in args {
-                        let expr_type = self.expression(arg);
-
-                        if let Some(previous_type) = last_type {
-                            if let Some(common_type) =
-                                Checker::merge_types(previous_type, expr_type.kind)
-                            {
-                                last_type = Some(common_type);
-                            } else {
-                                self.errors.push(TsError {
-                                    kind: TypeErrorKind::ExpectedType {
-                                        got: expr_type,
-                                        expected: previous_type,
+                // todo: lhs needs to be lvalue
+                let (is_reassignable, lhs_type) = match lhs {
+                    PExpression::Atom(PAtom::Identifier(identifier)) => self
+                        .current_scope_variable(&identifier.to_string())
+                        .map_or((true, &default_type), |symbol| {
+                            let ts_info = symbol.ts_type();
+                            let is_reassignable = symbol.is_reassignable();
+                            if !is_reassignable {
+                                errors.push(TsError {
+                                    kind: TypeErrorKind::ReassignConstant {
+                                        symbol: symbol.clone(),
+                                        assign_token: operator.token.clone(),
                                     },
                                 });
                             }
-                        } else {
-                            last_type = Some(expr_type.kind);
-                        }
-                    }
-                    last_type
+                            (is_reassignable, ts_info)
+                        }),
+                    _ => todo!(),
+                };
+
+                if is_reassignable && !lhs_type.kind.contains(&rhs_type.kind) {
+                    errors.push(TsError {
+                        kind: TypeErrorKind::ExpectedType {
+                            got: rhs_type,
+                            expected: lhs_type.kind,
+                        },
+                    });
                 }
+                Some(lhs_type.kind)
+            } else {
+                // Naive algo just checks if all args have same type
+
+                let mut last_type = None;
+                for arg in args {
+                    let expr_type = self.expression(arg);
+
+                    if let Some(previous_type) = last_type {
+                        if let Some(common_type) =
+                            Checker::merge_types(previous_type, expr_type.kind)
+                        {
+                            last_type = Some(common_type);
+                        } else {
+                            self.errors.push(TsError {
+                                kind: TypeErrorKind::ExpectedType {
+                                    got: expr_type,
+                                    expected: previous_type,
+                                },
+                            });
+                        }
+                    } else {
+                        last_type = Some(expr_type.kind);
+                    }
+                }
+                last_type
             };
             (errors, ts_type)
         };
@@ -231,7 +220,7 @@ impl<'a> Checker<'a> {
     }
 
     fn add_scope(&mut self) {
-        self.scopes.push(TsScope::default())
+        self.scopes.push(TsScope::default());
     }
 
     fn drop_scope(&mut self) -> Option<TsScope<'a>> {
@@ -355,11 +344,11 @@ impl<'a> TsLiteral<'a> {
     }
 
     const fn is_of_type(&self, b: &Self) -> bool {
-        match (self, b) {
-            (TsLiteral::String { .. }, TsLiteral::String { .. }) => true,
-            (TsLiteral::Number { .. }, TsLiteral::Number { .. }) => true,
-            _ => false,
-        }
+        matches!(
+            (self, b),
+            (TsLiteral::String { .. }, TsLiteral::String { .. })
+                | (TsLiteral::Number { .. }, TsLiteral::Number { .. })
+        )
     }
 }
 

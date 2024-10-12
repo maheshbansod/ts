@@ -21,12 +21,8 @@ pub fn make_operators(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let doc_comments = operators.iter().map(|op| {
-        let line_1 = format!(
-            "({}) {} operator",
-            op.kind.to_string(),
-            op.display_str.value()
-        );
-        let line_3 = format!("\nassociated with TokenKind::{}", op.token_kind.to_string());
+        let line_1 = format!("({}) {} operator", op.kind, op.display_str.value());
+        let line_3 = format!("\nassociated with TokenKind::{}", op.token_kind);
         let orig_comment = if let Some(c) = op.doc_comment.clone() {
             quote! {
                 #[doc = #c]
@@ -120,7 +116,7 @@ pub fn make_operators(input: TokenStream) -> TokenStream {
 impl Parse for MakeOperatorsInput {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let ops = input.parse_terminated(POperatorDataInput::parse, Token![,])?;
-        let ops = ops.into_iter().map(|op| op).collect::<Vec<_>>();
+        let ops = ops.into_iter().collect::<Vec<_>>();
         Ok(MakeOperatorsInput { operators: ops })
     }
 }
@@ -201,13 +197,13 @@ fn generate_operator_parse_impl(
         .iter()
         .map(|(l_bp, r_bp)| {
             let l_bp = if !matches!(kind, POperatorKind::Pre) {
-                let l_bp = l_bp.expect(&format!("Expect left for {kind}"));
+                let l_bp = l_bp.unwrap_or_else(|| panic!("Expect left for {kind}"));
                 quote! { #l_bp }
             } else {
                 quote! { () }
             };
             let r_bp = if !matches!(kind, POperatorKind::Post) {
-                let r_bp = r_bp.expect(&format!("Expect right for {kind}"));
+                let r_bp = r_bp.unwrap_or_else(|| panic!("Expect right for {kind}"));
                 quote! { #r_bp }
             } else {
                 quote! { () }
@@ -282,7 +278,7 @@ struct OperatorGroup {
 }
 
 impl OperatorGroup {
-    fn from_operator_inputs(kind: POperatorKind, operators: &Vec<POperatorDataInput>) -> Self {
+    fn from_operator_inputs(kind: POperatorKind, operators: &[POperatorDataInput]) -> Self {
         let (operator_idents, token_kinds) = operators
             .iter()
             .filter(|op| op.kind.is_similar_to(&kind))
@@ -312,10 +308,7 @@ enum POperatorKind {
 impl POperatorKind {
     fn is_similar_to(&self, kind: &POperatorKind) -> bool {
         match kind {
-            POperatorKind::In(_assoc) => match self {
-                POperatorKind::In(_assoc) => true,
-                _ => false,
-            },
+            POperatorKind::In(_assoc) => matches!(self, POperatorKind::In(_assoc)),
             _ => self == kind,
         }
     }
