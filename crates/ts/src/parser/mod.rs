@@ -229,10 +229,7 @@ impl<'a> PAtom<'a> {
                 todo!()
             }
             Self::Identifier(id) => &id.token,
-            Self::ObjectLiteral(_obj) => {
-                // should store '{'
-                todo!()
-            }
+            Self::ObjectLiteral(obj) => &obj.start_token,
         }
     }
 }
