@@ -86,6 +86,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_statement(&mut self) -> ParseResult<'a, (PStatement<'a>, Vec<ParserError<'a>>)> {
+        self.consume_comments();
         let (statement, errors) = if let Some(next_token) = self.tokenizer.peek() {
             if let Ok(binding_type) = next_token.token_type().clone().try_into() {
                 (self.parse_binding(binding_type)?, vec![])
@@ -108,6 +109,13 @@ impl<'a> Parser<'a> {
         };
         self.optional_semicolon();
         Ok((statement, errors))
+    }
+
+    /// Consume comments if any
+    fn consume_comments(&mut self) {
+        while let Ok(_) = self.expect_token(TokenKind::Comment) {
+            // ignore comment
+        }
     }
 
     /// Check if a token is there

@@ -54,6 +54,7 @@ impl<'a> Parser<'a> {
         &mut self,
         min_binding_power: u8,
     ) -> ParseResult<'a, PExpression<'a>> {
+        self.consume_comments();
         let mut lhs = if let Some((operator, ((), r_bp))) =
             self.try_parse_prefix_operator(min_binding_power)
         {
