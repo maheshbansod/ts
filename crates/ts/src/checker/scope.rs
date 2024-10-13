@@ -23,7 +23,8 @@ impl<'a> TsScope<'a> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct TsSymbol<'a> {
     binding_type: &'a BindingType,
     identifier: &'a PIdentifier<'a>,

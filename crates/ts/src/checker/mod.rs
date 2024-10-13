@@ -246,12 +246,14 @@ impl<'a> Checker<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct TsError<'a> {
     kind: TypeErrorKind<'a>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum TypeErrorKind<'a> {
     ExpectedType {
         got: TsTypeHolder<'a, 'a>,
@@ -267,7 +269,8 @@ pub enum TypeErrorKind<'a> {
 }
 
 /// An entity that has a typescript type
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct TsTypeHolder<'a, 'b> {
     kind: TsType<'a>,
     holding_for: &'a PExpression<'b>,
@@ -275,7 +278,8 @@ pub struct TsTypeHolder<'a, 'b> {
 
 // todo: implement PartialEq manually maybe or i think better would be to remove it and implement different kinds
 // of equality either as part of checker of separate functions
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum TsType<'a> {
     Any,
     Literal(TsLiteral<'a>),
@@ -294,7 +298,8 @@ impl<'a> Display for TsType<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum TsLiteral<'a> {
     Number { value: f32 },
     String { value: &'a str },
@@ -326,10 +331,15 @@ impl<'a> TsType<'a> {
     fn contains(&self, b: &Self) -> bool {
         match (self, b) {
             (TsType::Any, _) => true,
-            (a, TsType::Literal(l)) => *a == l.wider(),
-            (a, b) if *a == *b => true,
+            (TsType::Number, TsType::Number) | (TsType::String, TsType::String) => true,
+            (TsType::Literal(a), TsType::Literal(b)) => a.is_same_as(b),
+            (a, TsType::Literal(b)) => b.matches_wider(a),
             _ => false,
         }
+    }
+
+    fn matches(&self, b: &Self) -> bool {
+        self.contains(b) && b.contains(self)
     }
 }
 
@@ -341,11 +351,31 @@ impl<'a> TsLiteral<'a> {
         }
     }
 
+    /// Same type, can have diff value
     const fn is_of_type(&self, b: &Self) -> bool {
         matches!(
             (self, b),
             (TsLiteral::String { .. }, TsLiteral::String { .. })
                 | (TsLiteral::Number { .. }, TsLiteral::Number { .. })
+        )
+    }
+
+    /// Same type and value
+    fn is_same_as(&self, b: &Self) -> bool {
+        match (self, b) {
+            (TsLiteral::String { value: a }, TsLiteral::String { value: b }) => a == b,
+
+            (TsLiteral::Number { value: a }, TsLiteral::Number { value: b }) => a == b,
+            _ => false,
+        }
+    }
+
+    /// Whether literal matches a wider type
+    fn matches_wider(&self, t: &TsType<'a>) -> bool {
+        let wider = self.wider();
+        matches!(
+            (wider, t),
+            (TsType::Number, TsType::Number) | (TsType::String, TsType::String)
         )
     }
 }
@@ -369,7 +399,7 @@ mod tests {
         let code = "4";
         let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
-        assert_eq!(t, TsType::Literal(TsLiteral::Number { value: 4.0 }))
+        assert!(t.matches(&TsType::Literal(TsLiteral::Number { value: 4.0 })))
     }
 
     #[test]
@@ -377,7 +407,7 @@ mod tests {
         let code = "'string'";
         let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
-        assert_eq!(t, TsType::Literal(TsLiteral::String { value: "string" }))
+        assert!(t.matches(&TsType::Literal(TsLiteral::String { value: "string" })))
     }
 
     #[test]
@@ -385,7 +415,7 @@ mod tests {
         let code = "'string' + 'string'";
         let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
-        assert_eq!(t, TsType::String)
+        assert!(t.matches(&TsType::String))
     }
 
     #[test]
@@ -393,7 +423,7 @@ mod tests {
         let code = "4 + 4";
         let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
-        assert_eq!(t, TsType::Number)
+        assert!(t.matches(&TsType::Number))
     }
 
     #[test]
@@ -532,7 +562,9 @@ let a = a";
             TypeErrorKind::ExpectedType {
                 expected: TsType::Number,
                 got,
-            } if got.kind == TsType::Literal(TsLiteral::String { value: "4" }) => {}
+            } if got
+                .kind
+                .matches(&TsType::Literal(TsLiteral::String { value: "4" })) => {}
             _ => panic!("Unexpected {:?}", errors[0]),
         }
         let mut expected_types = HashMap::<String, _>::new();
