@@ -18,7 +18,7 @@ impl<'a> Parser<'a> {
                 let expression = self.parse_expression()?;
                 let expression = PObjectEntry::Destructure(expression);
                 object_entries.push(expression);
-            } else {
+            } else if !self.is_next_token(&TokenKind::BraceClose) {
                 let key_value = self.key_value()?;
                 let key_value = PObjectEntry::KeyValue(key_value);
                 object_entries.push(key_value);
@@ -371,6 +371,31 @@ let code = {
         };
         assert_eq!(expected_tree, tree);
 
+        Ok(())
+    }
+
+    #[test]
+    fn empty_object<'a>() -> ParseResult<'a, ()> {
+        let (tree, errors) = parse_code("let a = {}")?;
+        assert_eq!(errors.len(), 0);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Binding {
+                    binding_type: BindingType::Let,
+                    identifier: PIdentifier {
+                        token: Token::new(
+                            TokenKind::Identifier,
+                            TokenLocation { row: 1, column: 5 },
+                            "a",
+                        ),
+                    },
+                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
+                        entries: vec![],
+                    }))),
+                }],
+            },
+        };
+        assert_eq!(expected_tree, tree);
         Ok(())
     }
 }
