@@ -289,23 +289,23 @@ impl<'a> PLiteralPrimitive<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct PObject<'a> {
-    entries: Vec<PObjectEntry<'a>>,
+    pub entries: Vec<PObjectEntry<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
-enum PObjectEntry<'a> {
+pub enum PObjectEntry<'a> {
     KeyValue(PKeyValue<'a>),
     Destructure(PExpression<'a>),
 }
 
 #[derive(Debug, PartialEq)]
-struct PKeyValue<'a> {
-    key: PObjectKey<'a>,
-    value: PExpression<'a>,
+pub struct PKeyValue<'a> {
+    pub key: PObjectKey<'a>,
+    pub value: PExpression<'a>,
 }
 
 #[derive(Debug, PartialEq)]
-enum PObjectKey<'a> {
+pub enum PObjectKey<'a> {
     Identifier(PIdentifier<'a>),
     Expression(PExpression<'a>),
     Literal(PLiteralPrimitive<'a>),

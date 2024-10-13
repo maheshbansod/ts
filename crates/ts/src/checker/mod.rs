@@ -1,7 +1,9 @@
+mod object;
 mod scope;
 
 use std::fmt::Display;
 
+use object::TsObjectLiteral;
 use scope::{TsScope, TsSymbol};
 
 use crate::{
@@ -80,6 +82,13 @@ impl<'a> Checker<'a> {
                         .current_scope_variable_type(&identifier.to_string())
                         .unwrap_or(&default_type)
                         .clone();
+                }
+                PAtom::ObjectLiteral(object) => {
+                    let object = self.object(object);
+                    return TsTypeHolder {
+                        kind: object,
+                        holding_for: expression,
+                    };
                 }
                 _ => todo!(),
             },
@@ -324,6 +333,7 @@ pub enum TsType<'a> {
     Literal(TsLiteralPrimitive<'a>),
     Number,
     String,
+    Object(TsObjectLiteral<'a>),
 }
 
 impl<'a> Display for TsType<'a> {
@@ -333,6 +343,7 @@ impl<'a> Display for TsType<'a> {
             TsType::Number => write!(f, "number"),
             TsType::String => write!(f, "string"),
             TsType::Literal(literal) => write!(f, "{literal}"),
+            TsType::Object(obj) => write!(f, "{obj}"),
         }
     }
 }
@@ -447,7 +458,7 @@ impl<'a> TsLiteralPrimitive<'a> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::collections::HashMap;
 
     use pretty_assertions::assert_eq;
@@ -565,7 +576,7 @@ let b = a";
         }
     }
 
-    fn make_parse_tree(code: &str) -> TreeWrapper {
+    pub fn make_parse_tree(code: &str) -> TreeWrapper {
         let tok = Tokenizer::new(code);
         let parser = Parser::new(tok);
         let (tree, errors) = parser.parse().unwrap();
@@ -573,7 +584,7 @@ let b = a";
         TreeWrapper { tree }
     }
 
-    struct TreeWrapper<'a> {
+    pub struct TreeWrapper<'a> {
         tree: ParseTree<'a>,
     }
     impl<'a> TreeWrapper<'a> {
@@ -587,7 +598,7 @@ let b = a";
             exp.kind
         }
 
-        fn ts_check<'b>(&'b self) -> (Vec<TsError<'b>>, TsScope<'b>) {
+        pub fn ts_check<'b>(&'b self) -> (Vec<TsError<'b>>, TsScope<'b>) {
             let tree = &self.tree;
             let checker = Checker::new(tree);
             let (errors, scope) = checker.check();
