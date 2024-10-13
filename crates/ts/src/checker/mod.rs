@@ -514,8 +514,8 @@ pub mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::{
-        checker::{Checker, TsError, TsLiteralPrimitive, TsType, TsTypeHolder, TypeErrorKind},
-        parser::{PExpression, PStatement, ParseTree, Parser},
+        checker::{Checker, TsError, TsLiteralPrimitive, TsType, TypeErrorKind},
+        parser::{PStatement, ParseTree, Parser},
         tokenizer::Tokenizer,
     };
 
@@ -557,34 +557,10 @@ pub mod tests {
 
     #[test]
     fn error_different_types() {
-        // TODO: this is not an error - maybe instead of merge types, depend on operator more
         let code = "4 + '4'";
         let tree_wrapper = make_parse_tree(code);
         let (errors, scope) = tree_wrapper.ts_check();
-        let expr = match &tree_wrapper.tree.root.statements[0] {
-            PStatement::Expression { expression } => match expression {
-                PExpression::Cons(_op, args) => {
-                    let rhs = &args[1];
-                    rhs
-                }
-                _ => panic!(),
-            },
-            _ => panic!(),
-        };
-        let expected_errors = vec![TsError {
-            kind: TypeErrorKind::ExpectedType {
-                got: TsTypeHolder {
-                    kind: TsType::Literal(TsLiteralPrimitive::String { value: "4".into() }),
-                    holding_for: expr,
-                },
-                expected: TsType::Literal(TsLiteralPrimitive::Number { value: 4.0 }),
-            },
-        }];
-        let mut expected_errors = expected_errors.into_iter();
-        for error in errors {
-            let expected_error = expected_errors.next().unwrap();
-            assert_eq!(error, expected_error);
-        }
+        assert_eq!(errors.len(), 0);
         assert!(scope.symbols().is_empty());
     }
 
