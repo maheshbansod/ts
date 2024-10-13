@@ -163,8 +163,8 @@ impl<'a> Checker<'a> {
                 if lhs_is_number && rhs_is_number {
                     Some(TsType::Number)
                 } else if lhs_is_string && rhs_is_string
-                    || lhs_is_number && (rhs_is_number || !rhs_is_number && rhs_is_string)
-                    || rhs_is_number && (lhs_is_number || !lhs_is_number && lhs_is_string)
+                    || lhs_is_number && rhs_is_string
+                    || rhs_is_number && lhs_is_string
                 {
                     Some(TsType::String)
                 } else {
