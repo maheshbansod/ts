@@ -82,4 +82,19 @@ x
             assert_eq!(t, &symbol.type_info());
         }
     }
+
+    #[test]
+    fn empty_object() {
+        let code = "let obj = {}";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        assert_eq!(errors.len(), 0);
+        let symbols = scope.symbols();
+        let expected_types = vec!["let obj: {}"];
+        assert_eq!(expected_types.len(), symbols.len());
+        let mut expected_types = expected_types.iter();
+        for (_, symbol) in symbols {
+            assert_eq!(&symbol.type_info(), expected_types.next().unwrap())
+        }
+    }
 }
