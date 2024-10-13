@@ -151,6 +151,31 @@ impl<'a> Checker<'a> {
                     });
                 }
                 Some(lhs_type.kind.clone())
+            } else if operator.kind == POperatorKind::BinaryAdd {
+                let lhs = &args[0];
+                let rhs = &args[1];
+                let lhs = self.expression(lhs);
+                let rhs = self.expression(rhs);
+                let lhs_is_number = TsType::Number.contains(&lhs.kind);
+                let rhs_is_number = TsType::Number.contains(&rhs.kind);
+                let lhs_is_string = TsType::String.contains(&lhs.kind);
+                let rhs_is_string = TsType::String.contains(&rhs.kind);
+                if lhs_is_number && rhs_is_number {
+                    Some(TsType::Number)
+                } else if lhs_is_string && rhs_is_string
+                    || lhs_is_number && (rhs_is_number || !rhs_is_number && rhs_is_string)
+                    || rhs_is_number && (lhs_is_number || !lhs_is_number && lhs_is_string)
+                {
+                    Some(TsType::String)
+                } else {
+                    errors.push(TsError {
+                        kind: TypeErrorKind::InvalidOperands {
+                            operator_token: operator.token.clone(),
+                            operands: vec![lhs, rhs],
+                        },
+                    });
+                    None
+                }
             } else {
                 // Naive algo just checks if all args have same type
 
@@ -268,6 +293,10 @@ pub enum TypeErrorKind<'a> {
         got: TsTypeHolder<'a, 'a>,
         expected: TsType<'a>,
     },
+    InvalidOperands {
+        operands: Vec<TsTypeHolder<'a, 'a>>,
+        operator_token: Token<'a>,
+    },
     ReassignConstant {
         symbol: TsSymbol<'a>,
         assign_token: Token<'a>,
@@ -294,6 +323,27 @@ impl<'a> Display for TypeErrorKind<'a> {
                     got.kind,
                     expected
                 )
+            }
+            TypeErrorKind::InvalidOperands {
+                operator_token,
+                operands,
+            } => {
+                let first_operand = operands[0].clone();
+                write!(
+                    f,
+                    "{}: Operator '{}' cannot be applied to types ",
+                    first_operand.holding_for.one_token().location(),
+                    operator_token.lexeme()
+                )?;
+                let (last, all_except_last) = operands.split_last().unwrap();
+                let all_except_last = all_except_last
+                    .iter()
+                    .map(|t| t.kind.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "{}", all_except_last)?;
+                write!(f, " and {}", last.kind)?;
+                Ok(())
             }
             TypeErrorKind::ReassignConstant {
                 symbol,
@@ -595,6 +645,10 @@ let b = a";
                 _ => panic!("nah"),
             };
             let exp = checker.expression(&s);
+            for error in &checker.errors {
+                println!("{error}");
+            }
+            assert_eq!(checker.errors.len(), 0);
             exp.kind
         }
 
