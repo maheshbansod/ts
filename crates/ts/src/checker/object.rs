@@ -37,8 +37,11 @@ pub struct TsObjectLiteral<'a> {
 impl<'a> Display for TsObjectLiteral<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
-        for (id, entry) in &self.entries {
-            write!(f, "{id}: {}, ", entry.kind)?;
+        let mut keys = self.entries.keys().collect::<Vec<_>>();
+        keys.sort();
+        for key in keys {
+            let entry = self.entries.get(key).unwrap();
+            write!(f, "{key}: {}, ", entry.kind)?;
         }
         write!(f, "}}")?;
         Ok(())
@@ -47,6 +50,8 @@ impl<'a> Display for TsObjectLiteral<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use pretty_assertions::assert_eq;
 
     use crate::checker::tests::make_parse_tree;
@@ -56,7 +61,8 @@ mod tests {
         let code = "
 let x = {
     a: 1,
-    b: 'four'
+    b: 'four',
+    c: {}
 };
 x
 ";
@@ -64,11 +70,16 @@ x
         let (errors, scope) = tree.ts_check();
         assert_eq!(errors.len(), 0);
         let symbols = scope.symbols();
-        let expected_types = vec!["let x: {a: number, b: string, }"];
+        let mut expected_types = HashMap::new();
+        expected_types.insert(
+            "x".to_string(),
+            "let x: {a: number, b: string, c: {}, }".to_string(),
+        );
         assert_eq!(expected_types.len(), symbols.len());
-        let mut expected_types = expected_types.iter();
-        for (_, symbol) in symbols {
-            assert_eq!(&symbol.type_info(), expected_types.next().unwrap())
+
+        for (id, symbol) in symbols {
+            let t = expected_types.get(id).unwrap();
+            assert_eq!(t, &symbol.type_info());
         }
     }
 }
