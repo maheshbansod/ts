@@ -338,11 +338,11 @@ impl<'a> Display for TypeErrorKind<'a> {
                 let (last, all_except_last) = operands.split_last().unwrap();
                 let all_except_last = all_except_last
                     .iter()
-                    .map(|t| t.kind.to_string())
+                    .map(|t| format!("'{}'", t.kind.non_const()))
                     .collect::<Vec<_>>()
                     .join(", ");
                 write!(f, "{}", all_except_last)?;
-                write!(f, " and {}", last.kind)?;
+                write!(f, " and '{}'.", last.kind.non_const())?;
                 Ok(())
             }
             TypeErrorKind::ReassignConstant {
