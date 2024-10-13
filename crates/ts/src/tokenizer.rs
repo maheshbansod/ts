@@ -392,15 +392,21 @@ impl<'a> Iterator for Tokenizer<'a> {
     }
 }
 
+impl<'a> Display for Token<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.token_type())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TokenLocation {
     pub row: usize,
     pub column: usize,
 }
 
-impl<'a> Display for Token<'a> {
+impl Display for TokenLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.token_type())
+        write!(f, "line {}, column {}", self.row, self.column)
     }
 }
 

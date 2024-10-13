@@ -40,13 +40,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                     let checker = Checker::new(&tree);
                     println!("Type checking...");
-                    let (errors, types) = checker.check();
+                    let (errors, scope) = checker.check();
                     if errors.is_empty() {
                         println!("No checker errors ✅");
                     } else {
-                        println!("❌ Type checking Errors: {errors:?}");
+                        println!("❌ Type checking Errors:");
+                        for error in errors {
+                            println!("    {error}");
+                        }
                     }
-                    println!("Types: {types:?}");
+                    println!("Types:");
+                    for (_i, symbol) in scope.symbols() {
+                        println!("{}", symbol.type_info())
+                    }
                 }
                 Err(err) => {
                     println!("❌ Error while parsing");

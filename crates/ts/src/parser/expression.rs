@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::tokenizer::TokenKind;
+use crate::tokenizer::{Token, TokenKind};
 
 use super::{operator::POperator, PAtom, PIdentifier, ParseResult, Parser, ParserError};
 
@@ -8,6 +8,15 @@ use super::{operator::POperator, PAtom, PIdentifier, ParseResult, Parser, Parser
 pub enum PExpression<'a> {
     Atom(PAtom<'a>),
     Cons(POperator<'a>, Vec<PExpression<'a>>),
+}
+
+impl<'a> PExpression<'a> {
+    pub fn one_token(&self) -> &Token<'a> {
+        match self {
+            Self::Atom(atom) => atom.one_token(),
+            Self::Cons(operator, _args) => &operator.token,
+        }
+    }
 }
 
 impl<'a> Display for PExpression<'a> {

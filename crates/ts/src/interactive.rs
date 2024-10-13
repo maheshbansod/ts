@@ -27,7 +27,7 @@ pub fn interactive() -> Result<(), Box<dyn Error>> {
                     if !errors.is_empty() {
                         println!("Errors:");
                         for error in &errors {
-                            println!("Error: {error:?}");
+                            println!("Error: {error}");
                         }
                     }
 

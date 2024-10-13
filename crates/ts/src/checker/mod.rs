@@ -136,7 +136,7 @@ impl<'a> Checker<'a> {
                 if is_reassignable && !lhs_type.kind.contains(&rhs_type.kind) {
                     errors.push(TsError {
                         kind: TypeErrorKind::ExpectedType {
-                            got: rhs_type,
+                            got: rhs_type.non_const(),
                             expected: lhs_type.kind.clone(),
                         },
                     });
@@ -268,6 +268,47 @@ pub enum TypeErrorKind<'a> {
     },
 }
 
+impl<'a> Display for TsError<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+impl<'a> Display for TypeErrorKind<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeErrorKind::ExpectedType { got, expected } => {
+                write!(
+                    f,
+                    "{}: Type '{}' is not assignable to type '{}'.",
+                    got.holding_for.one_token().location(),
+                    got.kind,
+                    expected
+                )
+            }
+            TypeErrorKind::ReassignConstant {
+                symbol,
+                assign_token,
+            } => {
+                write!(
+                    f,
+                    "{}: Cannot assign to '{}' because it is a constant.",
+                    assign_token.location(),
+                    symbol.name()
+                )
+            }
+            TypeErrorKind::RedeclareBlockScoped { symbol } => {
+                write!(
+                    f,
+                    "{}: Cannot redeclare block scoped variable '{}'.",
+                    symbol.location(),
+                    symbol.name()
+                )
+            }
+        }
+    }
+}
+
 /// An entity that has a typescript type
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -276,8 +317,6 @@ pub struct TsTypeHolder<'a, 'b> {
     holding_for: &'a PExpression<'b>,
 }
 
-// todo: implement PartialEq manually maybe or i think better would be to remove it and implement different kinds
-// of equality either as part of checker of separate functions
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum TsType<'a> {
@@ -327,6 +366,14 @@ impl<'a> From<&PLiteralPrimitive<'a>> for TsType<'a> {
     }
 }
 
+impl TsTypeHolder<'_, '_> {
+    fn non_const(&self) -> Self {
+        let mut s = self.clone();
+        s.kind = s.kind.non_const();
+        s
+    }
+}
+
 impl<'a> TsType<'a> {
     fn contains(&self, b: &Self) -> bool {
         match (self, b) {
@@ -338,8 +385,17 @@ impl<'a> TsType<'a> {
         }
     }
 
+    #[cfg(test)]
     fn matches(&self, b: &Self) -> bool {
         self.contains(b) && b.contains(self)
+    }
+
+    fn non_const(&self) -> TsType<'a> {
+        if let TsType::Literal(l) = self {
+            l.wider()
+        } else {
+            self.clone()
+        }
     }
 }
 
@@ -364,7 +420,6 @@ impl<'a> TsLiteral<'a> {
     fn is_same_as(&self, b: &Self) -> bool {
         match (self, b) {
             (TsLiteral::String { value: a }, TsLiteral::String { value: b }) => a == b,
-
             (TsLiteral::Number { value: a }, TsLiteral::Number { value: b }) => a == b,
             _ => false,
         }

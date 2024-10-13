@@ -17,7 +17,7 @@ use std::{
     iter::Peekable,
 };
 
-use crate::tokenizer::{Token, TokenKind, Tokenizer};
+use crate::tokenizer::{Token, TokenKind, TokenLocation, Tokenizer};
 
 pub struct Parser<'a> {
     tokenizer: Peekable<Tokenizer<'a>>,
@@ -217,6 +217,26 @@ pub enum PAtom<'a> {
     Function(PFunction<'a>),
 }
 
+impl<'a> PAtom<'a> {
+    fn one_token(&self) -> &Token<'a> {
+        match &self {
+            Self::Literal(l) => match l {
+                PLiteralPrimitive::Number { value: _, token } => token,
+                PLiteralPrimitive::String { start_delim, .. } => start_delim,
+            },
+            Self::Function(_f) => {
+                // should store 'function ' keyword
+                todo!()
+            }
+            Self::Identifier(id) => &id.token,
+            Self::ObjectLiteral(_obj) => {
+                // should store '{'
+                todo!()
+            }
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum PLiteralPrimitive<'a> {
     Number {
@@ -230,9 +250,6 @@ pub enum PLiteralPrimitive<'a> {
         end_delim: Token<'a>,
     },
 }
-
-#[cfg(test)]
-use crate::tokenizer::TokenLocation;
 
 pub use self::expression::PExpression;
 
@@ -302,6 +319,10 @@ pub struct PIdentifier<'a> {
 impl<'a> PIdentifier<'a> {
     pub const fn name(&self) -> &str {
         self.token.lexeme()
+    }
+
+    pub fn location(&self) -> &TokenLocation {
+        self.token.location()
     }
 }
 

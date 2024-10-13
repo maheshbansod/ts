@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::parser::{BindingType, PIdentifier};
+use crate::{
+    parser::{BindingType, PIdentifier},
+    tokenizer::TokenLocation,
+};
 
 use super::TsTypeHolder;
 
@@ -44,6 +47,14 @@ impl<'a> TsSymbol<'a> {
         }
     }
 
+    pub fn name(&self) -> &str {
+        self.identifier.name()
+    }
+
+    pub fn location(&self) -> &TokenLocation {
+        self.identifier.location()
+    }
+
     pub const fn ts_type<'b>(&self) -> &TsTypeHolder<'a, 'b>
     where
         'a: 'b,
@@ -59,7 +70,6 @@ impl<'a> TsSymbol<'a> {
         !matches!(self.binding_type, BindingType::Const)
     }
 
-    #[cfg(test)]
     pub fn type_info(&self) -> String {
         format!(
             "{} {}: {}",
