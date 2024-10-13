@@ -321,7 +321,7 @@ pub struct TsTypeHolder<'a, 'b> {
 #[cfg_attr(test, derive(PartialEq))]
 pub enum TsType<'a> {
     Any,
-    Literal(TsLiteral<'a>),
+    Literal(TsLiteralPrimitive<'a>),
     Number,
     String,
 }
@@ -339,17 +339,17 @@ impl<'a> Display for TsType<'a> {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub enum TsLiteral<'a> {
+pub enum TsLiteralPrimitive<'a> {
     Number { value: f32 },
     String { value: &'a str },
 }
 
-impl<'a> Display for TsLiteral<'a> {
+impl<'a> Display for TsLiteralPrimitive<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TsLiteral::Number { value } => write!(f, "{value}"),
-            TsLiteral::String { value } => write!(f, "`{value}`"), // TODO: we might wanna escape
-                                                                   // backticks
+            TsLiteralPrimitive::Number { value } => write!(f, "{value}"),
+            TsLiteralPrimitive::String { value } => write!(f, "`{value}`"), // TODO: we might wanna escape
+                                                                            // backticks
         }
     }
 }
@@ -358,9 +358,11 @@ impl<'a> From<&PLiteralPrimitive<'a>> for TsType<'a> {
     fn from(value: &PLiteralPrimitive<'a>) -> Self {
         let kind = match value {
             PLiteralPrimitive::Number { value, token: _ } => {
-                TsType::Literal(TsLiteral::Number { value: *value })
+                TsType::Literal(TsLiteralPrimitive::Number { value: *value })
             }
-            PLiteralPrimitive::String { value, .. } => TsType::Literal(TsLiteral::String { value }),
+            PLiteralPrimitive::String { value, .. } => {
+                TsType::Literal(TsLiteralPrimitive::String { value })
+            }
         };
         kind
     }
@@ -399,11 +401,11 @@ impl<'a> TsType<'a> {
     }
 }
 
-impl<'a> TsLiteral<'a> {
+impl<'a> TsLiteralPrimitive<'a> {
     const fn wider(&self) -> TsType<'a> {
         match self {
-            TsLiteral::String { value: _ } => TsType::String,
-            TsLiteral::Number { value: _ } => TsType::Number,
+            TsLiteralPrimitive::String { value: _ } => TsType::String,
+            TsLiteralPrimitive::Number { value: _ } => TsType::Number,
         }
     }
 
@@ -411,16 +413,25 @@ impl<'a> TsLiteral<'a> {
     const fn is_of_type(&self, b: &Self) -> bool {
         matches!(
             (self, b),
-            (TsLiteral::String { .. }, TsLiteral::String { .. })
-                | (TsLiteral::Number { .. }, TsLiteral::Number { .. })
+            (
+                TsLiteralPrimitive::String { .. },
+                TsLiteralPrimitive::String { .. }
+            ) | (
+                TsLiteralPrimitive::Number { .. },
+                TsLiteralPrimitive::Number { .. }
+            )
         )
     }
 
     /// Same type and value
     fn is_same_as(&self, b: &Self) -> bool {
         match (self, b) {
-            (TsLiteral::String { value: a }, TsLiteral::String { value: b }) => a == b,
-            (TsLiteral::Number { value: a }, TsLiteral::Number { value: b }) => a == b,
+            (TsLiteralPrimitive::String { value: a }, TsLiteralPrimitive::String { value: b }) => {
+                a == b
+            }
+            (TsLiteralPrimitive::Number { value: a }, TsLiteralPrimitive::Number { value: b }) => {
+                a == b
+            }
             _ => false,
         }
     }
@@ -442,7 +453,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::{
-        checker::{Checker, TsError, TsLiteral, TsType, TsTypeHolder, TypeErrorKind},
+        checker::{Checker, TsError, TsLiteralPrimitive, TsType, TsTypeHolder, TypeErrorKind},
         parser::{PExpression, PStatement, ParseTree, Parser},
         tokenizer::Tokenizer,
     };
@@ -454,7 +465,7 @@ mod tests {
         let code = "4";
         let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
-        assert!(t.matches(&TsType::Literal(TsLiteral::Number { value: 4.0 })))
+        assert!(t.matches(&TsType::Literal(TsLiteralPrimitive::Number { value: 4.0 })))
     }
 
     #[test]
@@ -462,7 +473,9 @@ mod tests {
         let code = "'string'";
         let wrapper = make_parse_tree(code);
         let t = wrapper.check_expr();
-        assert!(t.matches(&TsType::Literal(TsLiteral::String { value: "string" })))
+        assert!(t.matches(&TsType::Literal(TsLiteralPrimitive::String {
+            value: "string"
+        })))
     }
 
     #[test]
@@ -500,10 +513,10 @@ mod tests {
         let expected_errors = vec![TsError {
             kind: TypeErrorKind::ExpectedType {
                 got: TsTypeHolder {
-                    kind: TsType::Literal(TsLiteral::String { value: "4".into() }),
+                    kind: TsType::Literal(TsLiteralPrimitive::String { value: "4".into() }),
                     holding_for: expr,
                 },
-                expected: TsType::Literal(TsLiteral::Number { value: 4.0 }),
+                expected: TsType::Literal(TsLiteralPrimitive::Number { value: 4.0 }),
             },
         }];
         let mut expected_errors = expected_errors.into_iter();
@@ -617,9 +630,7 @@ let a = a";
             TypeErrorKind::ExpectedType {
                 expected: TsType::Number,
                 got,
-            } if got
-                .kind
-                .matches(&TsType::Literal(TsLiteral::String { value: "4" })) => {}
+            } if got.kind.matches(&TsType::String) => {}
             _ => panic!("Unexpected {:?}", errors[0]),
         }
         let mut expected_types = HashMap::<String, _>::new();
