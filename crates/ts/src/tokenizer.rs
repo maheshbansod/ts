@@ -7,6 +7,7 @@ pub enum TokenKind {
     BraceOpen,
     Colon,
     Comma,
+    Comment,
     Const,
     Decrement,
     /// ... operator
@@ -311,6 +312,34 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    fn try_consume_comment(&mut self) -> Option<Token<'a>> {
+        let mut it_clone = self.char_indices.clone();
+        match it_clone.next() {
+            Some((_first, '/')) => match it_clone.next() {
+                Some((second, '/')) => {
+                    if let Some((first, last, it)) =
+                        Tokenizer::consume_while_it(&it_clone, |c| c != '\n')
+                    {
+                        Some(self.match_token(it, TokenKind::Comment, first, last))
+                    } else {
+                        let comment_start = second + 1;
+                        Some(self.match_token(
+                            it_clone,
+                            TokenKind::Comment,
+                            comment_start,
+                            comment_start,
+                        ))
+                    }
+                }
+                Some((_second, '*')) => {
+                    todo!("multiline comments")
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     fn try_consume_unknown(&mut self) -> Option<Token<'a>> {
         let mut it_clone = self.char_indices.clone();
         it_clone
@@ -382,6 +411,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             TokenizationMode::Normal => {
                 self.consume_whitespace();
                 self.try_consume_keyword()
+                    .or_else(|| self.try_consume_comment())
                     .or_else(|| self.try_consume_operator())
                     .or_else(|| self.try_consume_literal())
                     .or_else(|| self.try_consume_identifier())
@@ -809,6 +839,47 @@ x
                 "while",
             ),
             Token::new(TokenKind::Var, TokenLocation { row: 1, column: 34 }, "var"),
+        ];
+        let actual_tokens = tokenizer.collect::<Vec<_>>();
+        assert_eq!(actual_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn comments() {
+        let code = "
+// test comment
+a + b
+// comment 2
+c
+";
+        let tokenizer = Tokenizer::new(code);
+        let expected_tokens = vec![
+            Token::new(
+                TokenKind::Comment,
+                TokenLocation { row: 2, column: 3 },
+                " test comment",
+            ),
+            Token::new(
+                TokenKind::Identifier,
+                TokenLocation { row: 3, column: 1 },
+                "a",
+            ),
+            Token::new(TokenKind::Plus, TokenLocation { row: 3, column: 3 }, "+"),
+            Token::new(
+                TokenKind::Identifier,
+                TokenLocation { row: 3, column: 5 },
+                "b",
+            ),
+            Token::new(
+                TokenKind::Comment,
+                TokenLocation { row: 4, column: 3 },
+                " comment 2",
+            ),
+            Token::new(
+                TokenKind::Identifier,
+                TokenLocation { row: 5, column: 1 },
+                "c",
+            ),
         ];
         let actual_tokens = tokenizer.collect::<Vec<_>>();
         assert_eq!(actual_tokens, expected_tokens);
