@@ -34,6 +34,22 @@ pub struct TsObjectLiteral<'a> {
     entries: HashMap<&'a str, TsTypeHolder<'a, 'a>>,
 }
 
+impl<'a> TsObjectLiteral<'a> {
+    pub fn is_assignable_to(&self, b: &Self) -> bool {
+        for (id, a_entry) in &self.entries {
+            if let Some(b_entry) = b.entries.get(id) {
+                if !a_entry.kind.contains(&b_entry.kind) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
+
 impl<'a> Display for TsObjectLiteral<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
@@ -95,6 +111,28 @@ x
         let mut expected_types = expected_types.iter();
         for (_, symbol) in symbols {
             assert_eq!(&symbol.type_info(), expected_types.next().unwrap())
+        }
+    }
+
+    #[test]
+    fn same_object() {
+        let code = "
+let a = {a: 1};
+let b = a;
+a = b;
+";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        assert_eq!(errors.len(), 0);
+        let symbols = scope.symbols();
+        let mut keys = symbols.keys().collect::<Vec<_>>();
+        keys.sort();
+        let expected_types = vec!["let a: {a: number, }", "let b: {a: number, }"];
+        assert_eq!(symbols.len(), expected_types.len());
+        let mut expected_types = expected_types.iter();
+        for key in keys {
+            let sym = symbols.get(key).unwrap();
+            assert_eq!(&sym.type_info(), expected_types.next().unwrap());
         }
     }
 }

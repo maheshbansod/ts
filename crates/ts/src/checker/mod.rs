@@ -442,6 +442,7 @@ impl<'a> TsType<'a> {
         match (self, b) {
             (TsType::Any, _) => true,
             (TsType::Number, TsType::Number) | (TsType::String, TsType::String) => true,
+            (TsType::Object(object1), TsType::Object(object2)) => object1.is_assignable_to(object2),
             (TsType::Literal(a), TsType::Literal(b)) => a.is_same_as(b),
             (a, TsType::Literal(b)) => b.matches_wider(a),
             _ => false,
