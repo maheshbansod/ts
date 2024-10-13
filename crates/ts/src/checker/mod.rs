@@ -85,12 +85,12 @@ impl<'a> Checker<'a> {
                 }
                 PAtom::ObjectLiteral(object) => {
                     let object = self.object(object);
-                    return TsTypeHolder {
+                    TsTypeHolder {
                         kind: object,
                         holding_for: expression,
-                    };
+                    }
                 }
-                _ => todo!(),
+                PAtom::Function(_) => todo!(),
             },
             PExpression::Cons(operator, args) => {
                 let t = self.resolve_operation(operator, args);
@@ -162,10 +162,7 @@ impl<'a> Checker<'a> {
                 let rhs_is_string = TsType::String.contains(&rhs.kind);
                 if lhs_is_number && rhs_is_number {
                     Some(TsType::Number)
-                } else if lhs_is_string && rhs_is_string
-                    || lhs_is_number && rhs_is_string
-                    || rhs_is_number && lhs_is_string
-                {
+                } else if (lhs_is_number || lhs_is_string) && (rhs_is_number || rhs_is_string) {
                     Some(TsType::String)
                 } else {
                     errors.push(TsError {
@@ -185,7 +182,7 @@ impl<'a> Checker<'a> {
 
                     if let Some(previous_type) = &last_type {
                         if let Some(common_type) =
-                            Checker::merge_types(&previous_type, &expr_type.kind)
+                            Checker::merge_types(previous_type, &expr_type.kind)
                         {
                             last_type = Some(common_type);
                         } else {
@@ -215,16 +212,16 @@ impl<'a> Checker<'a> {
 
         match (a, b) {
             (TsType::Literal(literal_a), TsType::Literal(literal_b)) => {
-                if literal_a.is_of_type(&literal_b) {
+                if literal_a.is_of_type(literal_b) {
                     Some(literal_a.wider())
                 } else {
                     None
                 }
             }
             _ => {
-                if a.contains(&b) {
+                if a.contains(b) {
                     Some(a.clone())
-                } else if b.contains(&a) {
+                } else if b.contains(a) {
                     Some(b.clone())
                 } else {
                     None
@@ -341,7 +338,7 @@ impl<'a> Display for TypeErrorKind<'a> {
                     .map(|t| format!("'{}'", t.kind.non_const()))
                     .collect::<Vec<_>>()
                     .join(", ");
-                write!(f, "{}", all_except_last)?;
+                write!(f, "{all_except_last}")?;
                 write!(f, " and '{}'.", last.kind.non_const())?;
                 Ok(())
             }
@@ -440,8 +437,9 @@ impl TsTypeHolder<'_, '_> {
 impl<'a> TsType<'a> {
     fn contains(&self, b: &Self) -> bool {
         match (self, b) {
-            (TsType::Any, _) => true,
-            (TsType::Number, TsType::Number) | (TsType::String, TsType::String) => true,
+            (TsType::Any, _)
+            | (TsType::Number, TsType::Number)
+            | (TsType::String, TsType::String) => true,
             (TsType::Object(object1), TsType::Object(object2)) => object1.is_assignable_to(object2),
             (TsType::Literal(a), TsType::Literal(b)) => a.is_same_as(b),
             (a, TsType::Literal(b)) => b.matches_wider(a),
@@ -454,7 +452,7 @@ impl<'a> TsType<'a> {
         self.contains(b) && b.contains(self)
     }
 
-    fn non_const(&self) -> TsType<'a> {
+    fn non_const(&self) -> Self {
         if let TsType::Literal(l) = self {
             l.wider()
         } else {
@@ -492,7 +490,8 @@ impl<'a> TsLiteralPrimitive<'a> {
                 a == b
             }
             (TsLiteralPrimitive::Number { value: a }, TsLiteralPrimitive::Number { value: b }) => {
-                a == b
+                let error_margin = 0.0001;
+                (a - b).abs() < error_margin
             }
             _ => false,
         }

@@ -50,8 +50,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                         }
                     }
                     println!("Types:");
-                    for (_i, symbol) in scope.symbols() {
-                        println!("{}", symbol.type_info())
+                    for symbol in scope.symbols().values() {
+                        println!("{}", symbol.type_info());
                     }
                 }
                 Err(err) => {

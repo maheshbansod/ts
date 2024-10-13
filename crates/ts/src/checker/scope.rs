@@ -47,11 +47,11 @@ impl<'a> TsSymbol<'a> {
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub const fn name(&self) -> &str {
         self.identifier.name()
     }
 
-    pub fn location(&self) -> &TokenLocation {
+    pub const fn location(&self) -> &TokenLocation {
         self.identifier.location()
     }
 

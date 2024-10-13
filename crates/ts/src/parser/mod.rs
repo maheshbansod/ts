@@ -113,7 +113,7 @@ impl<'a> Parser<'a> {
 
     /// Consume comments if any
     fn consume_comments(&mut self) {
-        while let Ok(_) = self.expect_token(TokenKind::Comment) {
+        while self.expect_token(TokenKind::Comment).is_ok() {
             // ignore comment
         }
     }
@@ -198,9 +198,11 @@ impl Debug for ParseTreeRoot<'_> {
 impl<'a> Debug for PStatement<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
-            match self {
-                PStatement::Expression { expression } => write!(f, "expr({expression})"),
-                _ => write!(f, "{self:?}"),
+            if let PStatement::Expression { expression } = self {
+                write!(f, "expr({expression})")
+            } else {
+                let s = self;
+                write!(f, "{s:?}")
             }
         } else {
             match self {
@@ -330,7 +332,7 @@ impl<'a> PIdentifier<'a> {
         self.token.lexeme()
     }
 
-    pub fn location(&self) -> &TokenLocation {
+    pub const fn location(&self) -> &TokenLocation {
         self.token.location()
     }
 }

@@ -14,11 +14,11 @@ impl<'a> Checker<'a> {
                         PObjectKey::Identifier(identifier) => identifier.name(),
                         _ => todo!(),
                     };
-                    let exp_type = self.expression(&value);
+                    let exp_type = self.expression(value);
 
                     (key, exp_type.non_const())
                 }
-                _ => todo!(),
+                PObjectEntry::Destructure(_) => todo!(),
             };
             object_entries.insert(key, value);
         }
@@ -46,7 +46,7 @@ impl<'a> TsObjectLiteral<'a> {
             }
         }
 
-        return true;
+        true
     }
 }
 
