@@ -135,4 +135,25 @@ a = b;
             assert_eq!(&sym.type_info(), expected_types.next().unwrap());
         }
     }
+
+    #[test]
+    fn overlap() {
+        let code = "
+let a = {a: 1};
+a = {a: 3, b: 3};
+";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        assert_eq!(errors.len(), 0);
+        let symbols = scope.symbols();
+        let mut keys = symbols.keys().collect::<Vec<_>>();
+        keys.sort();
+        let expected_types = vec!["let a: {a: number, }"];
+        assert_eq!(symbols.len(), expected_types.len());
+        let mut expected_types = expected_types.iter();
+        for key in keys {
+            let sym = symbols.get(key).unwrap();
+            assert_eq!(&sym.type_info(), expected_types.next().unwrap());
+        }
+    }
 }
