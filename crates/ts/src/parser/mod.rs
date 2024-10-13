@@ -192,11 +192,19 @@ impl<'a> Debug for PStatement<'a> {
         if f.alternate() {
             match self {
                 PStatement::Expression { expression } => write!(f, "expr({expression})"),
-                _ => Debug::fmt(&self, f),
+                _ => write!(f, "{self:?}"),
             }
         } else {
-            let s = self;
-            write!(f, "{s:?}")
+            match self {
+                Self::Binding {
+                    binding_type,
+                    identifier,
+                    value,
+                } => write!(f, "{binding_type} {identifier} = {value:?}"),
+                Self::Block { statements } => write!(f, "block({statements:?})"),
+                Self::Expression { expression } => write!(f, "expr({expression:?})"),
+                Self::If { statement } => write!(f, "if({statement:?})"),
+            }
         }
     }
 }
