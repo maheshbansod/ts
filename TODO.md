@@ -9,15 +9,20 @@ things to do
 
 ### Syntax
 
-- [ ] Add var binding
+- [x] Add var binding
 - [ ] Assign expression
+- [ ] ignore comments
 
 ### Operators
 
 - [ ] Relational operators
 - [ ] Comparison operators
-- [ ] dot operator
-- [ ] Associativity stuff ( + it's supporting in macro)
+- [x] dot operator
+- [x] Associativity stuff ( + it's supporting in macro)
+
+# Checker
+
+- [ ] Member access
 
 ### Error stuff
 
