@@ -143,8 +143,8 @@ impl<'a> Parser<'a> {
                     Ok((Some(PAtom::Identifier(PIdentifier { token })), vec![]))
                 }
                 TokenKind::BraceOpen => {
-                    self.tokenizer.next();
-                    let object = self.parse_object()?;
+                    let open_brace = self.tokenizer.next().unwrap();
+                    let object = self.parse_object(open_brace)?;
                     Ok((Some(PAtom::ObjectLiteral(object)), vec![]))
                 }
                 _ => Ok((None, vec![])),

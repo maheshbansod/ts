@@ -1,13 +1,17 @@
-use crate::tokenizer::TokenKind;
+use crate::tokenizer::{Token, TokenKind};
 
 use super::{PKeyValue, PObject, PObjectEntry, PObjectKey, ParseResult, Parser};
 
 impl<'a> Parser<'a> {
-    pub(super) fn parse_object(&mut self) -> ParseResult<'a, PObject<'a>> {
+    pub(super) fn parse_object(&mut self, start_token: Token<'a>) -> ParseResult<'a, PObject<'a>> {
         let entries = self.object_entries()?;
-        self.expect_token(TokenKind::BraceClose)?;
+        let end_delim = self.expect_token(TokenKind::BraceClose)?;
         let _ = self.expect_token(TokenKind::Comma);
-        let object = PObject { entries };
+        let object = PObject {
+            entries,
+            start_token,
+            end_token: end_delim,
+        };
         Ok(object)
     }
 
@@ -85,6 +89,16 @@ let code = {
                         ),
                     },
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
+                        start_token: Token::new(
+                            TokenKind::BraceOpen,
+                            TokenLocation { row: 2, column: 12 },
+                            "{",
+                        ),
+                        end_token: Token::new(
+                            TokenKind::BraceClose,
+                            TokenLocation { row: 4, column: 1 },
+                            "}",
+                        ),
                         entries: vec![PObjectEntry::KeyValue(PKeyValue {
                             key: PObjectKey::Identifier(PIdentifier {
                                 token: Token::new(
@@ -134,6 +148,16 @@ let code = {
                         ),
                     },
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
+                        start_token: Token::new(
+                            TokenKind::BraceOpen,
+                            TokenLocation { row: 2, column: 12 },
+                            "{",
+                        ),
+                        end_token: Token::new(
+                            TokenKind::BraceClose,
+                            TokenLocation { row: 5, column: 1 },
+                            "}",
+                        ),
                         entries: vec![
                             PObjectEntry::KeyValue(PKeyValue {
                                 key: PObjectKey::Identifier(PIdentifier {
@@ -205,6 +229,16 @@ let code = {
                         ),
                     },
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
+                        start_token: Token::new(
+                            TokenKind::BraceOpen,
+                            TokenLocation { row: 2, column: 12 },
+                            "{",
+                        ),
+                        end_token: Token::new(
+                            TokenKind::BraceClose,
+                            TokenLocation { row: 4, column: 1 },
+                            "}",
+                        ),
                         entries: vec![PObjectEntry::KeyValue(PKeyValue {
                             key: PObjectKey::Identifier(PIdentifier {
                                 token: Token::new(
@@ -253,6 +287,16 @@ let code = {
                         ),
                     },
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
+                        start_token: Token::new(
+                            TokenKind::BraceOpen,
+                            TokenLocation { row: 2, column: 12 },
+                            "{",
+                        ),
+                        end_token: Token::new(
+                            TokenKind::BraceClose,
+                            TokenLocation { row: 4, column: 1 },
+                            "}",
+                        ),
                         entries: vec![PObjectEntry::Destructure(PExpression::Atom(
                             PAtom::Identifier(PIdentifier {
                                 token: Token::new(
@@ -293,6 +337,16 @@ let code = {
                         ),
                     },
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
+                        start_token: Token::new(
+                            TokenKind::BraceOpen,
+                            TokenLocation { row: 2, column: 12 },
+                            "{",
+                        ),
+                        end_token: Token::new(
+                            TokenKind::BraceClose,
+                            TokenLocation { row: 4, column: 1 },
+                            "}",
+                        ),
                         entries: vec![PObjectEntry::KeyValue(PKeyValue {
                             key: PObjectKey::Expression(PExpression::Atom(PAtom::Literal(
                                 PLiteralPrimitive::String {
@@ -354,6 +408,16 @@ let code = {
                         ),
                     },
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
+                        start_token: Token::new(
+                            TokenKind::BraceOpen,
+                            TokenLocation { row: 2, column: 12 },
+                            "{",
+                        ),
+                        end_token: Token::new(
+                            TokenKind::BraceClose,
+                            TokenLocation { row: 4, column: 1 },
+                            "}",
+                        ),
                         entries: vec![PObjectEntry::KeyValue(PKeyValue {
                             key: PObjectKey::Literal(PLiteralPrimitive::string("key", 3, 5, "'")),
                             value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
@@ -391,6 +455,16 @@ let code = {
                     },
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
                         entries: vec![],
+                        start_token: Token::new(
+                            TokenKind::BraceOpen,
+                            TokenLocation { row: 1, column: 9 },
+                            "{",
+                        ),
+                        end_token: Token::new(
+                            TokenKind::BraceClose,
+                            TokenLocation { row: 1, column: 10 },
+                            "}",
+                        ),
                     }))),
                 }],
             },

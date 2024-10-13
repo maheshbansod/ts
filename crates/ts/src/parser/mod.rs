@@ -290,6 +290,10 @@ impl<'a> PLiteralPrimitive<'a> {
 #[derive(Debug, PartialEq)]
 pub struct PObject<'a> {
     pub entries: Vec<PObjectEntry<'a>>,
+    /// Opening brace
+    start_token: Token<'a>,
+    /// Closing brace
+    end_token: Token<'a>,
 }
 
 #[derive(Debug, PartialEq)]
