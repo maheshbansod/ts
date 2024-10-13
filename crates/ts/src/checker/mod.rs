@@ -78,7 +78,8 @@ impl<'a> Checker<'a> {
                     };
                     return self
                         .current_scope_variable_type(&identifier.to_string())
-                        .unwrap_or(default_type);
+                        .unwrap_or(&default_type)
+                        .clone();
                 }
                 _ => todo!(),
             },
@@ -87,7 +88,7 @@ impl<'a> Checker<'a> {
 
                 let t = t.unwrap_or(TsType::Any);
                 TsTypeHolder {
-                    kind: t,
+                    kind: t.clone(),
                     holding_for: expression,
                 }
             }
@@ -136,11 +137,11 @@ impl<'a> Checker<'a> {
                     errors.push(TsError {
                         kind: TypeErrorKind::ExpectedType {
                             got: rhs_type,
-                            expected: lhs_type.kind,
+                            expected: lhs_type.kind.clone(),
                         },
                     });
                 }
-                Some(lhs_type.kind)
+                Some(lhs_type.kind.clone())
             } else {
                 // Naive algo just checks if all args have same type
 
@@ -148,16 +149,16 @@ impl<'a> Checker<'a> {
                 for arg in args {
                     let expr_type = self.expression(arg);
 
-                    if let Some(previous_type) = last_type {
+                    if let Some(previous_type) = &last_type {
                         if let Some(common_type) =
-                            Checker::merge_types(previous_type, expr_type.kind)
+                            Checker::merge_types(&previous_type, &expr_type.kind)
                         {
                             last_type = Some(common_type);
                         } else {
                             self.errors.push(TsError {
                                 kind: TypeErrorKind::ExpectedType {
                                     got: expr_type,
-                                    expected: previous_type,
+                                    expected: previous_type.clone(),
                                 },
                             });
                         }
@@ -173,7 +174,7 @@ impl<'a> Checker<'a> {
         ts_type
     }
 
-    fn merge_types(a: TsType<'a>, b: TsType<'a>) -> Option<TsType<'a>> {
+    fn merge_types(a: &TsType<'a>, b: &TsType<'a>) -> Option<TsType<'a>> {
         if matches!(a, TsType::Any) || matches!(b, TsType::Any) {
             return Some(TsType::Any);
         }
@@ -188,9 +189,9 @@ impl<'a> Checker<'a> {
             }
             _ => {
                 if a.contains(&b) {
-                    Some(a)
+                    Some(a.clone())
                 } else if b.contains(&a) {
-                    Some(b)
+                    Some(b.clone())
                 } else {
                     None
                 }
@@ -208,13 +209,10 @@ impl<'a> Checker<'a> {
         None
     }
 
-    fn current_scope_variable_type(&self, id: &str) -> Option<TsTypeHolder<'a, 'a>> {
+    fn current_scope_variable_type(&self, id: &str) -> Option<&TsTypeHolder<'a, 'a>> {
         if let Some(symbol) = self.current_scope_variable(id) {
             let ts_info = symbol.ts_type();
-            return Some(TsTypeHolder {
-                kind: ts_info.kind,
-                holding_for: ts_info.holding_for,
-            });
+            return Some(ts_info);
         }
         None
     }
@@ -277,7 +275,7 @@ pub struct TsTypeHolder<'a, 'b> {
 
 // todo: implement PartialEq manually maybe or i think better would be to remove it and implement different kinds
 // of equality either as part of checker of separate functions
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TsType<'a> {
     Any,
     Literal(TsLiteral<'a>),
