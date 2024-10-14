@@ -122,35 +122,46 @@ impl<'a> Checker<'a> {
                     holding_for: lhs,
                 };
 
-                // todo: lhs needs to be lvalue
-                let (is_reassignable, lhs_type) = match lhs {
-                    PExpression::Atom(PAtom::Identifier(identifier)) => self
-                        .current_scope_variable(&identifier.to_string())
-                        .map_or((true, &default_type), |symbol| {
-                            let ts_info = symbol.ts_type();
-                            let is_reassignable = symbol.is_reassignable();
-                            if !is_reassignable {
-                                errors.push(TsError {
-                                    kind: TypeErrorKind::ReassignConstant {
-                                        symbol: symbol.clone(),
-                                        assign_token: operator.token.clone(),
-                                    },
-                                });
-                            }
-                            (is_reassignable, ts_info)
-                        }),
-                    _ => todo!(),
-                };
-
-                if is_reassignable && !lhs_type.kind.contains(&rhs_type.kind) {
-                    errors.push(TsError {
-                        kind: TypeErrorKind::ExpectedType {
-                            got: rhs_type.non_const(),
-                            expected: lhs_type.kind.clone(),
-                        },
-                    });
+                if let Some((is_reassignable, lhs_type)) = match lhs {
+                    PExpression::Atom(PAtom::Identifier(identifier)) => {
+                        Some(self.current_scope_variable(&identifier.to_string()).map_or(
+                            (true, &default_type),
+                            |symbol| {
+                                let ts_info = symbol.ts_type();
+                                let is_reassignable = symbol.is_reassignable();
+                                if !is_reassignable {
+                                    errors.push(TsError {
+                                        kind: TypeErrorKind::ReassignConstant {
+                                            symbol: symbol.clone(),
+                                            assign_token: operator.token.clone(),
+                                        },
+                                    });
+                                }
+                                (is_reassignable, ts_info)
+                            },
+                        ))
+                    }
+                    _ => {
+                        errors.push(TsError {
+                            kind: TypeErrorKind::InvalidLvalue {
+                                assign_token: operator.token.clone(),
+                            },
+                        });
+                        None
+                    }
+                } {
+                    if is_reassignable && !lhs_type.kind.contains(&rhs_type.kind) {
+                        errors.push(TsError {
+                            kind: TypeErrorKind::ExpectedType {
+                                got: rhs_type.non_const(),
+                                expected: lhs_type.kind.clone(),
+                            },
+                        });
+                    }
+                    Some(lhs_type.kind.clone())
+                } else {
+                    None
                 }
-                Some(lhs_type.kind.clone())
             } else if operator.kind == POperatorKind::BinaryAdd {
                 let lhs = &args[0];
                 let rhs = &args[1];
@@ -290,6 +301,9 @@ pub enum TypeErrorKind<'a> {
         got: TsTypeHolder<'a, 'a>,
         expected: TsType<'a>,
     },
+    InvalidLvalue {
+        assign_token: Token<'a>,
+    },
     InvalidOperands {
         operands: Vec<TsTypeHolder<'a, 'a>>,
         operator_token: Token<'a>,
@@ -320,6 +334,9 @@ impl<'a> Display for TypeErrorKind<'a> {
                     got.kind,
                     expected
                 )
+            }
+            TypeErrorKind::InvalidLvalue { assign_token } => {
+                write!(f, "{}: The left-hand side of an assignment expression must be a variable or a property access.", assign_token.location())
             }
             TypeErrorKind::InvalidOperands {
                 operator_token,
@@ -708,5 +725,21 @@ let a = a";
             let id = id.clone();
             assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
         }
+    }
+
+    #[test]
+    fn assign_lvalue_invalid() {
+        let code = "
+    4 = 2
+    ";
+        let wrapper = make_parse_tree(code);
+        let (errors, scope) = wrapper.ts_check();
+        assert_eq!(errors.len(), 1);
+        match errors[0].kind {
+            TypeErrorKind::InvalidLvalue { assign_token: _ } => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), 0);
     }
 }
