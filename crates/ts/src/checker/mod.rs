@@ -141,6 +141,13 @@ impl<'a> Checker<'a> {
                             },
                         ))
                     }
+                    PExpression::Cons(
+                        POperator {
+                            kind: POperatorKind::MemberAccess,
+                            ..
+                        },
+                        _,
+                    ) => None,
                     _ => {
                         errors.push(TsError {
                             kind: TypeErrorKind::InvalidLvalue {
@@ -160,7 +167,8 @@ impl<'a> Checker<'a> {
                     }
                     Some(lhs_type.kind.clone())
                 } else {
-                    None
+                    let lhs_type = self.expression(lhs);
+                    Some(lhs_type.kind.clone())
                 }
             } else if operator.kind == POperatorKind::BinaryAdd {
                 let lhs = &args[0];
@@ -741,5 +749,24 @@ let a = a";
         }
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), 0);
+    }
+
+    #[test]
+    fn member_access_valid() {
+        let code = "let a = {b: 1};
+a.b = 2;
+";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: {b: number, }");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
     }
 }
