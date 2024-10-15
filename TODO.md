@@ -10,8 +10,8 @@ things to do
 ### Syntax
 
 - [x] Add var binding
-- [ ] Assign expression
-- [ ] ignore comments
+- [x] Assign expression
+- [x] ignore comments
 
 ### Operators
 
@@ -22,13 +22,14 @@ things to do
 
 # Checker
 
-- [ ] Member access
+- [x] Member access
+- [ ] Any type - assigning to and from any should be fine
 
 ### Error stuff
 
 - [ ] Maybe use token.clone instead of consuming after peek for where I do next and expect "Already peeked"
 - [ ] Look at unexpected token cases and see if expected token cases can work better there.
-- [ ] BUG - why errors of multiple unexpected token for the same token
+- [x] BUG - why errors of multiple unexpected token for the same token
 
 ### Macros
 
