@@ -48,6 +48,10 @@ impl<'a> TsObjectLiteral<'a> {
 
         true
     }
+
+    pub fn get(&self, id: &str) -> Option<TsTypeHolder<'a, 'a>> {
+        self.entries.get(id).cloned()
+    }
 }
 
 impl<'a> Display for TsObjectLiteral<'a> {

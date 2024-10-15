@@ -8,8 +8,8 @@ use scope::{TsScope, TsSymbol};
 
 use crate::{
     parser::{
-        BindingType, PAtom, PExpression, PLiteralPrimitive, POperator, POperatorKind, PStatement,
-        ParseTree,
+        BindingType, PAtom, PExpression, PIdentifier, PLiteralPrimitive, POperator, POperatorKind,
+        PStatement, ParseTree,
     },
     tokenizer::Token,
 };
@@ -122,10 +122,10 @@ impl<'a> Checker<'a> {
                     holding_for: lhs,
                 };
 
-                if let Some((is_reassignable, lhs_type)) = match lhs {
+                if let Some((is_reassignable, lhs_kind)) = match lhs {
                     PExpression::Atom(PAtom::Identifier(identifier)) => {
                         Some(self.current_scope_variable(&identifier.to_string()).map_or(
-                            (true, &default_type),
+                            (true, default_type.kind),
                             |symbol| {
                                 let ts_info = symbol.ts_type();
                                 let is_reassignable = symbol.is_reassignable();
@@ -137,7 +137,7 @@ impl<'a> Checker<'a> {
                                         },
                                     });
                                 }
-                                (is_reassignable, ts_info)
+                                (is_reassignable, ts_info.kind.clone())
                             },
                         ))
                     }
@@ -147,7 +147,10 @@ impl<'a> Checker<'a> {
                             ..
                         },
                         _,
-                    ) => None,
+                    ) => {
+                        let lhs_type = self.expression(lhs);
+                        Some((true, lhs_type.kind))
+                    }
                     _ => {
                         errors.push(TsError {
                             kind: TypeErrorKind::InvalidLvalue {
@@ -157,18 +160,17 @@ impl<'a> Checker<'a> {
                         None
                     }
                 } {
-                    if is_reassignable && !lhs_type.kind.contains(&rhs_type.kind) {
+                    if is_reassignable && !lhs_kind.contains(&rhs_type.kind) {
                         errors.push(TsError {
                             kind: TypeErrorKind::ExpectedType {
                                 got: rhs_type.non_const(),
-                                expected: lhs_type.kind.clone(),
+                                expected: lhs_kind.clone(),
                             },
                         });
                     }
-                    Some(lhs_type.kind.clone())
+                    Some(lhs_kind.clone())
                 } else {
-                    let lhs_type = self.expression(lhs);
-                    Some(lhs_type.kind.clone())
+                    None
                 }
             } else if operator.kind == POperatorKind::BinaryAdd {
                 let lhs = &args[0];
@@ -191,6 +193,19 @@ impl<'a> Checker<'a> {
                         },
                     });
                     None
+                }
+            } else if operator.kind == POperatorKind::MemberAccess {
+                let lhs = &args[0];
+                let rhs = &args[1];
+
+                let lhs_type = self.expression(lhs);
+                match rhs {
+                    PExpression::Atom(PAtom::Identifier(ident)) => {
+                        lhs_type.kind.resolve_member_access_type(ident)
+                    }
+                    _ => panic!(
+                        "this would never happen, should we represent expressions another way?"
+                    ),
                 }
             } else {
                 // Naive algo just checks if all args have same type
@@ -396,6 +411,15 @@ impl<'a> Display for TypeErrorKind<'a> {
 pub struct TsTypeHolder<'a, 'b> {
     kind: TsType<'a>,
     holding_for: &'a PExpression<'b>,
+}
+
+impl<'a> TsType<'a> {
+    fn resolve_member_access_type(&self, ident: &PIdentifier<'a>) -> Option<TsType<'a>> {
+        match &self {
+            TsType::Object(object) => object.get(&ident.to_string()).map(|t| t.kind),
+            _ => todo!(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -760,6 +784,32 @@ a.b = 2;
         let (errors, scope) = tree.ts_check();
         println!("{errors:?}");
         assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: {b: number, }");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn member_access_invalid() {
+        let code = "let a = {b: 1};
+a.b = '2';
+";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 1);
+        match &errors[0].kind {
+            TypeErrorKind::ExpectedType {
+                got,
+                expected: TsType::Number,
+            } if got.kind == TsType::String => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: {b: number, }");
         let symbols = scope.symbols();
