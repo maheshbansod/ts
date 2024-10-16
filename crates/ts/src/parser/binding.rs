@@ -19,7 +19,14 @@ impl<'a> Parser<'a> {
         #[cfg(feature = "ts")]
         let ts_type = if self.expect_token(TokenKind::Colon).is_ok() {
             // todo: parse type expression
-            self.parse_identifier().ok().map(|id| PType::Identifier(id))
+            self.parse_identifier()
+                .ok()
+                .map(|identifier| match identifier {
+                    id if id.to_string() == "number" => PType::Number(id.token),
+                    id if id.to_string() == "string" => PType::String(id.token),
+                    id if id.to_string() == "any" => PType::Any(id.token),
+                    id => PType::Identifier(id),
+                })
         } else {
             None
         };
@@ -168,13 +175,11 @@ let x: number = 4;
                             "x",
                         ),
                     },
-                    ts_type: Some(PType::Identifier(PIdentifier {
-                        token: Token::new(
-                            TokenKind::Identifier,
-                            TokenLocation { row: 2, column: 8 },
-                            "number",
-                        ),
-                    })),
+                    ts_type: Some(PType::Number(Token::new(
+                        TokenKind::Identifier,
+                        TokenLocation { row: 2, column: 8 },
+                        "number",
+                    ))),
                     value: Some(PExpression::Atom(PAtom::Literal(
                         PLiteralPrimitive::Number {
                             value: 4.0,

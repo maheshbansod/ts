@@ -186,6 +186,9 @@ pub enum PStatement<'a> {
 #[derive(PartialEq)]
 #[cfg(feature = "ts")]
 pub enum PType<'a> {
+    Any(Token<'a>),
+    Number(Token<'a>),
+    String(Token<'a>),
     Identifier(PIdentifier<'a>),
 }
 
@@ -433,6 +436,9 @@ impl<'a> Display for PType<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Identifier(identifier) => write!(f, "{identifier}"),
+            Self::Any(_) => write!(f, "any"),
+            Self::Number(_) => write!(f, "number"),
+            Self::String(_) => write!(f, "string"),
         }
     }
 }
