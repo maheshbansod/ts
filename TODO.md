@@ -23,7 +23,7 @@ things to do
 # Checker
 
 - [x] Member access
-- [ ] Any type - assigning to and from any should be fine
+- [x] Any type - assigning to and from any should be fine
 
 ### Error stuff
 
