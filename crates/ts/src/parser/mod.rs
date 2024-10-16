@@ -169,6 +169,8 @@ pub enum PStatement<'a> {
         binding_type: BindingType,
         identifier: PIdentifier<'a>,
         value: Option<PExpression<'a>>,
+        #[cfg(feature = "ts")]
+        ts_type: Option<PType<'a>>,
     },
     Block {
         statements: Vec<PStatement<'a>>,
@@ -179,6 +181,12 @@ pub enum PStatement<'a> {
     If {
         statement: PIfElseStatement<'a>,
     },
+}
+
+#[derive(PartialEq)]
+#[cfg(feature = "ts")]
+pub enum PType<'a> {
+    Identifier(PIdentifier<'a>),
 }
 
 impl Debug for ParseTreeRoot<'_> {
@@ -210,7 +218,23 @@ impl<'a> Debug for PStatement<'a> {
                     binding_type,
                     identifier,
                     value,
-                } => write!(f, "{binding_type} {identifier} = {value:?}"),
+                    #[cfg(feature = "ts")]
+                    ts_type,
+                } => {
+                    #[cfg(feature = "ts")]
+                    {
+                        let ts_type = if let Some(ts_type) = ts_type {
+                            format!(": {ts_type}")
+                        } else {
+                            "".to_string()
+                        };
+                        write!(f, "{binding_type} {identifier}{ts_type} = {value:?}")
+                    }
+                    #[cfg(not(feature = "ts"))]
+                    {
+                        write!(f, "{binding_type} {identifier} = {value:?}")
+                    }
+                }
                 Self::Block { statements } => write!(f, "block({statements:?})"),
                 Self::Expression { expression } => write!(f, "expr({expression:?})"),
                 Self::If { statement } => write!(f, "if({statement:?})"),
@@ -404,6 +428,15 @@ impl<'a> Display for PIdentifier<'a> {
     }
 }
 
+#[cfg(feature = "ts")]
+impl<'a> Display for PType<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identifier(identifier) => write!(f, "{identifier}"),
+        }
+    }
+}
+
 impl<'a> Display for PFunction<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let fname = self
@@ -488,6 +521,8 @@ let z = x + y;
                                 "x",
                             ),
                         },
+                        #[cfg(feature = "ts")]
+                        ts_type: None,
                         value: Some(PExpression::Atom(PAtom::Literal(
                             PLiteralPrimitive::Number {
                                 value: 30.0,
@@ -508,6 +543,8 @@ let z = x + y;
                                 "y",
                             ),
                         },
+                        #[cfg(feature = "ts")]
+                        ts_type: None,
                         value: Some(PExpression::Atom(PAtom::Literal(
                             PLiteralPrimitive::Number {
                                 value: 100.0,
@@ -528,6 +565,8 @@ let z = x + y;
                                 "z",
                             ),
                         },
+                        #[cfg(feature = "ts")]
+                        ts_type: None,
                         value: Some(PExpression::Cons(
                             POperator::new(
                                 POperatorKind::BinaryAdd,
@@ -589,6 +628,8 @@ y;
                                 "x",
                             ),
                         },
+                        #[cfg(feature = "ts")]
+                        ts_type: None,
                         value: Some(PExpression::Atom(PAtom::Literal(
                             PLiteralPrimitive::Number {
                                 value: 1.0,
@@ -611,6 +652,8 @@ y;
                                         "y",
                                     ),
                                 },
+                                #[cfg(feature = "ts")]
+                                ts_type: None,
                                 value: Some(PExpression::Atom(PAtom::Literal(
                                     PLiteralPrimitive::Number {
                                         value: 2.0,

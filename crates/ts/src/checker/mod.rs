@@ -40,6 +40,8 @@ impl<'a> Checker<'a> {
                     binding_type,
                     identifier,
                     value,
+                    #[cfg(feature = "ts")]
+                        ts_type: _,
                 } => {
                     let identifier_name = identifier.name();
                     if let Some(value) = value {

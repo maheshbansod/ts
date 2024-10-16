@@ -88,6 +88,8 @@ let code = {
                             "code",
                         ),
                     },
+                    #[cfg(feature = "ts")]
+                    ts_type: None,
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
                         start_token: Token::new(
                             TokenKind::BraceOpen,
@@ -147,6 +149,8 @@ let code = {
                             "code",
                         ),
                     },
+                    #[cfg(feature = "ts")]
+                    ts_type: None,
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
                         start_token: Token::new(
                             TokenKind::BraceOpen,
@@ -228,6 +232,8 @@ let code = {
                             "code",
                         ),
                     },
+                    #[cfg(feature = "ts")]
+                    ts_type: None,
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
                         start_token: Token::new(
                             TokenKind::BraceOpen,
@@ -286,6 +292,8 @@ let code = {
                             "code",
                         ),
                     },
+                    #[cfg(feature = "ts")]
+                    ts_type: None,
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
                         start_token: Token::new(
                             TokenKind::BraceOpen,
@@ -336,6 +344,8 @@ let code = {
                             "code",
                         ),
                     },
+                    #[cfg(feature = "ts")]
+                    ts_type: None,
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
                         start_token: Token::new(
                             TokenKind::BraceOpen,
@@ -407,6 +417,8 @@ let code = {
                             "code",
                         ),
                     },
+                    #[cfg(feature = "ts")]
+                    ts_type: None,
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
                         start_token: Token::new(
                             TokenKind::BraceOpen,
@@ -453,6 +465,8 @@ let code = {
                             "a",
                         ),
                     },
+                    #[cfg(feature = "ts")]
+                    ts_type: None,
                     value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
                         entries: vec![],
                         start_token: Token::new(

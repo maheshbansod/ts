@@ -4,6 +4,9 @@ use crate::tokenizer::TokenKind;
 
 use super::{PStatement, ParseResult, Parser};
 
+#[cfg(feature = "ts")]
+use super::PType;
+
 impl<'a> Parser<'a> {
     /// Parse binding type statement - assume the next token is already checked to be
     /// a binding type token
@@ -13,6 +16,13 @@ impl<'a> Parser<'a> {
     ) -> ParseResult<'a, PStatement<'a>> {
         self.tokenizer.next();
         let identifier = self.parse_identifier()?;
+        #[cfg(feature = "ts")]
+        let ts_type = if self.expect_token(TokenKind::Colon).is_ok() {
+            // todo: parse type expression
+            self.parse_identifier().ok().map(|id| PType::Identifier(id))
+        } else {
+            None
+        };
         let value = {
             if self.expect_token(TokenKind::Assign).is_ok() {
                 Some(self.parse_expression()?)
@@ -23,6 +33,8 @@ impl<'a> Parser<'a> {
         let statement = PStatement::Binding {
             binding_type,
             identifier,
+            #[cfg(feature = "ts")]
+            ts_type,
             value,
         };
         Ok(statement)
@@ -68,6 +80,11 @@ mod tests {
         tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
     };
 
+    #[cfg(feature = "ts")]
+    use crate::parser::{PAtom, PExpression, PLiteralPrimitive};
+
+    use pretty_assertions::assert_eq;
+
     #[test]
     fn bindings() -> Result<(), Box<dyn Error>> {
         let code = "
@@ -91,6 +108,8 @@ var z;
                                 "x",
                             ),
                         },
+                        #[cfg(feature = "ts")]
+                        ts_type: None,
                         value: None,
                     },
                     PStatement::Binding {
@@ -102,6 +121,8 @@ var z;
                                 "y",
                             ),
                         },
+                        #[cfg(feature = "ts")]
+                        ts_type: None,
                         value: None,
                     },
                     PStatement::Binding {
@@ -113,9 +134,58 @@ var z;
                                 "z",
                             ),
                         },
+                        #[cfg(feature = "ts")]
+                        ts_type: None,
                         value: None,
                     },
                 ],
+            },
+        };
+        assert_eq!(expected_tree, tree);
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "ts")]
+    fn binding_with_type() -> Result<(), Box<dyn Error>> {
+        use crate::parser::PType;
+
+        let code = "
+let x: number = 4;
+";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, errors) = parser.parse()?;
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Binding {
+                    binding_type: BindingType::Let,
+                    identifier: PIdentifier {
+                        token: Token::new(
+                            TokenKind::Identifier,
+                            TokenLocation { row: 2, column: 5 },
+                            "x",
+                        ),
+                    },
+                    ts_type: Some(PType::Identifier(PIdentifier {
+                        token: Token::new(
+                            TokenKind::Identifier,
+                            TokenLocation { row: 2, column: 8 },
+                            "number",
+                        ),
+                    })),
+                    value: Some(PExpression::Atom(PAtom::Literal(
+                        PLiteralPrimitive::Number {
+                            value: 4.0,
+                            token: Token::new(
+                                TokenKind::Literal,
+                                TokenLocation { row: 2, column: 17 },
+                                "4",
+                            ),
+                        },
+                    ))),
+                }],
             },
         };
         assert_eq!(expected_tree, tree);

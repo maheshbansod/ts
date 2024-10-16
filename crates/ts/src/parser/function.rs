@@ -83,6 +83,8 @@ let y = x+1;
                                     "y",
                                 ),
                             },
+                            #[cfg(feature = "ts")]
+                            ts_type: None,
                             value: Some(PExpression::Cons(
                                 POperator::new(
                                     POperatorKind::BinaryAdd,
@@ -138,6 +140,8 @@ let x = function () {};
                             "x",
                         ),
                     },
+                    #[cfg(feature = "ts")]
+                    ts_type: None,
                     value: Some(PExpression::Atom(PAtom::Function(PFunction {
                         identifier: None,
                         arguments: vec![],
