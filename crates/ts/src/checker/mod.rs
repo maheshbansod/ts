@@ -487,6 +487,7 @@ impl<'a> TsType<'a> {
     fn contains(&self, b: &Self) -> bool {
         match (self, b) {
             (TsType::Any, _)
+            | (_, TsType::Any)
             | (TsType::Number, TsType::Number)
             | (TsType::String, TsType::String) => true,
             (TsType::Object(object1), TsType::Object(object2)) => object1.is_assignable_to(object2),
@@ -699,6 +700,26 @@ let a = a";
         }
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), 1);
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn assignment_any() {
+        let code = "
+    let a = {a: 4};
+    a = h; // filler for any type - would need to modify this test later
+    ";
+        let wrapper = make_parse_tree(code);
+        let (errors, scope) = wrapper.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: {a: number, }");
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), 1);
         for (id, symbol) in symbols {
