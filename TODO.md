@@ -12,6 +12,7 @@ things to do
 - [x] Add var binding
 - [x] Assign expression
 - [x] ignore comments
+- [ ] anon functions
 
 ### Operators
 
@@ -24,6 +25,17 @@ things to do
 
 - [x] Member access
 - [x] Any type - assigning to and from any should be fine
+- [ ] Literal types
+- [ ] Object types
+- [ ] type identifier
+- [ ] Generic type
+- [ ] plan on an equivalent of tsconfig.json
+- [ ] Functions and scopes
+- [ ] libs + core
+
+# Resolver
+
+- [ ] simple resolver
 
 ### Error stuff
 
@@ -38,7 +50,7 @@ things to do
 
 ## Non-application
 
-- [ ] use cargo-make or just or something
+- [ ] justfile for tests for all features
 - [x] add README.md
 
 ## extr
