@@ -53,7 +53,8 @@ mod tests {
     use crate::{
         parser::{
             parse_code, PAtom, PExpression, PIdentifier, PIfElseStatement, PIfStatement,
-            PLiteralPrimitive, PStatement, ParseResult, ParseTree, ParseTreeRoot, Parser,
+            PJsExpression, PLiteralPrimitive, PStatement, ParseResult, ParseTree, ParseTreeRoot,
+            Parser,
         },
         tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
     };
@@ -74,7 +75,7 @@ x
                 statements: vec![PStatement::If {
                     statement: PIfElseStatement {
                         if_statement: PIfStatement {
-                            condition: PExpression::Atom(PAtom::Literal(
+                            condition: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                                 PLiteralPrimitive::Number {
                                     value: 1.0,
                                     token: Token::new(
@@ -83,16 +84,18 @@ x
                                         "1",
                                     ),
                                 },
-                            )),
+                            ))),
                             body: Box::new(PStatement::Block {
                                 statements: vec![PStatement::Expression {
-                                    expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                        token: Token::new(
-                                            TokenKind::Identifier,
-                                            TokenLocation { row: 3, column: 1 },
-                                            "x",
-                                        ),
-                                    })),
+                                    expression: PExpression::Js(PJsExpression::Atom(
+                                        PAtom::Identifier(PIdentifier {
+                                            token: Token::new(
+                                                TokenKind::Identifier,
+                                                TokenLocation { row: 3, column: 1 },
+                                                "x",
+                                            ),
+                                        }),
+                                    )),
                                 }],
                             }),
                         },
@@ -124,7 +127,7 @@ y
                 statements: vec![PStatement::If {
                     statement: PIfElseStatement {
                         if_statement: PIfStatement {
-                            condition: PExpression::Atom(PAtom::Literal(
+                            condition: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                                 PLiteralPrimitive::Number {
                                     value: 1.0,
                                     token: Token::new(
@@ -133,21 +136,23 @@ y
                                         "1",
                                     ),
                                 },
-                            )),
+                            ))),
                             body: Box::new(PStatement::Block {
                                 statements: vec![PStatement::Expression {
-                                    expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                        token: Token::new(
-                                            TokenKind::Identifier,
-                                            TokenLocation { row: 3, column: 1 },
-                                            "x",
-                                        ),
-                                    })),
+                                    expression: PExpression::Js(PJsExpression::Atom(
+                                        PAtom::Identifier(PIdentifier {
+                                            token: Token::new(
+                                                TokenKind::Identifier,
+                                                TokenLocation { row: 3, column: 1 },
+                                                "x",
+                                            ),
+                                        }),
+                                    )),
                                 }],
                             }),
                         },
                         else_if_statements: vec![PIfStatement {
-                            condition: PExpression::Atom(PAtom::Literal(
+                            condition: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                                 PLiteralPrimitive::Number {
                                     value: 0.0,
                                     token: Token::new(
@@ -156,18 +161,20 @@ y
                                         "0",
                                     ),
                                 },
-                            )),
+                            ))),
                             body: Box::new(PStatement::Block { statements: vec![] }),
                         }],
                         else_body: Some(Box::new(PStatement::Block {
                             statements: vec![PStatement::Expression {
-                                expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenKind::Identifier,
-                                        TokenLocation { row: 6, column: 1 },
-                                        "y",
-                                    ),
-                                })),
+                                expression: PExpression::Js(PJsExpression::Atom(
+                                    PAtom::Identifier(PIdentifier {
+                                        token: Token::new(
+                                            TokenKind::Identifier,
+                                            TokenLocation { row: 6, column: 1 },
+                                            "y",
+                                        ),
+                                    }),
+                                )),
                             }],
                         })),
                     },
@@ -187,15 +194,17 @@ y
                 statements: vec![PStatement::If {
                     statement: PIfElseStatement {
                         if_statement: PIfStatement {
-                            condition: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenKind::Identifier,
-                                    TokenLocation { row: 1, column: 5 },
-                                    "true",
-                                ),
-                            })),
+                            condition: PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                                PIdentifier {
+                                    token: Token::new(
+                                        TokenKind::Identifier,
+                                        TokenLocation { row: 1, column: 5 },
+                                        "true",
+                                    ),
+                                },
+                            ))),
                             body: Box::new(PStatement::Expression {
-                                expression: PExpression::Atom(PAtom::Literal(
+                                expression: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                                     PLiteralPrimitive::Number {
                                         value: 1.0,
                                         token: Token::new(
@@ -204,12 +213,12 @@ y
                                             "1",
                                         ),
                                     },
-                                )),
+                                ))),
                             }),
                         },
                         else_if_statements: vec![],
                         else_body: Some(Box::new(PStatement::Expression {
-                            expression: PExpression::Atom(PAtom::Literal(
+                            expression: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                                 PLiteralPrimitive::Number {
                                     value: 0.0,
                                     token: Token::new(
@@ -218,7 +227,7 @@ y
                                         "0",
                                     ),
                                 },
-                            )),
+                            ))),
                         })),
                     },
                 }],

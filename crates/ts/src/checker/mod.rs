@@ -8,8 +8,8 @@ use scope::{TsScope, TsSymbol};
 
 use crate::{
     parser::{
-        BindingType, PAtom, PExpression, PIdentifier, PLiteralPrimitive, POperator, POperatorKind,
-        PStatement, ParseTree,
+        BindingType, PAtom, PExpression, PIdentifier, PJsExpression, PLiteralPrimitive, POperator,
+        POperatorKind, PStatement, ParseTree,
     },
     tokenizer::Token,
 };
@@ -69,42 +69,44 @@ impl<'a> Checker<'a> {
     /// Resolves type of an expression
     pub fn expression<'b>(&mut self, expression: &'b PExpression<'a>) -> TsTypeHolder<'a, 'b> {
         match expression {
-            PExpression::Atom(ref atom) => match atom {
-                PAtom::Literal(literal) => TsTypeHolder {
-                    kind: literal.into(),
-                    holding_for: expression,
-                },
-                PAtom::Identifier(identifier) => {
-                    // let's check the type of this identifier!
-                    let default_type = TsTypeHolder {
-                        kind: TsType::Any,
+            PExpression::Js(exp) => match exp {
+                PJsExpression::Atom(ref atom) => match atom {
+                    PAtom::Literal(literal) => TsTypeHolder {
+                        kind: literal.into(),
                         holding_for: expression,
-                    };
-                    return self
-                        .current_scope_variable_type(&identifier.to_string())
-                        .unwrap_or(&default_type)
-                        .clone();
-                }
-                PAtom::ObjectLiteral(object) => {
-                    let object = self.object(object);
+                    },
+                    PAtom::Identifier(identifier) => {
+                        // let's check the type of this identifier!
+                        let default_type = TsTypeHolder {
+                            kind: TsType::Any,
+                            holding_for: expression,
+                        };
+                        return self
+                            .current_scope_variable_type(&identifier.to_string())
+                            .unwrap_or(&default_type)
+                            .clone();
+                    }
+                    PAtom::ObjectLiteral(object) => {
+                        let object = self.object(object);
+                        TsTypeHolder {
+                            kind: object,
+                            holding_for: expression,
+                        }
+                    }
+                    PAtom::Function(_) => todo!(),
+                    #[cfg(feature = "ts")]
+                    PAtom::Type(_t) => todo!(),
+                },
+                PJsExpression::Cons(operator, args) => {
+                    let t = self.resolve_operation(operator, args);
+
+                    let t = t.unwrap_or(TsType::Any);
                     TsTypeHolder {
-                        kind: object,
+                        kind: t.clone(),
                         holding_for: expression,
                     }
                 }
-                PAtom::Function(_) => todo!(),
-                #[cfg(feature = "ts")]
-                PAtom::Type(_t) => todo!(),
             },
-            PExpression::Cons(operator, args) => {
-                let t = self.resolve_operation(operator, args);
-
-                let t = t.unwrap_or(TsType::Any);
-                TsTypeHolder {
-                    kind: t.clone(),
-                    holding_for: expression,
-                }
-            }
         }
     }
 
@@ -127,7 +129,7 @@ impl<'a> Checker<'a> {
                 };
 
                 if let Some((is_reassignable, lhs_kind)) = match lhs {
-                    PExpression::Atom(PAtom::Identifier(identifier)) => {
+                    PExpression::Js(PJsExpression::Atom(PAtom::Identifier(identifier))) => {
                         Some(self.current_scope_variable(&identifier.to_string()).map_or(
                             (true, default_type.kind),
                             |symbol| {
@@ -145,13 +147,13 @@ impl<'a> Checker<'a> {
                             },
                         ))
                     }
-                    PExpression::Cons(
+                    PExpression::Js(PJsExpression::Cons(
                         POperator {
                             kind: POperatorKind::MemberAccess,
                             ..
                         },
                         _,
-                    ) => {
+                    )) => {
                         let lhs_type = self.expression(lhs);
                         Some((true, lhs_type.kind))
                     }
@@ -204,7 +206,7 @@ impl<'a> Checker<'a> {
 
                 let lhs_type = self.expression(lhs);
                 match rhs {
-                    PExpression::Atom(PAtom::Identifier(ident)) => {
+                    PExpression::Js(PJsExpression::Atom(PAtom::Identifier(ident))) => {
                         lhs_type.kind.resolve_member_access_type(ident)
                     }
                     _ => panic!(

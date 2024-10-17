@@ -155,7 +155,7 @@ var z;
     #[test]
     #[cfg(feature = "ts")]
     fn binding_with_type() -> Result<(), Box<dyn Error>> {
-        use crate::parser::PType;
+        use crate::parser::{PJsExpression, PType};
 
         let code = "
 let x: number = 4;
@@ -180,7 +180,7 @@ let x: number = 4;
                         TokenLocation { row: 2, column: 8 },
                         "number",
                     ))),
-                    value: Some(PExpression::Atom(PAtom::Literal(
+                    value: Some(PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                         PLiteralPrimitive::Number {
                             value: 4.0,
                             token: Token::new(
@@ -189,7 +189,7 @@ let x: number = 4;
                                 "4",
                             ),
                         },
-                    ))),
+                    )))),
                 }],
             },
         };

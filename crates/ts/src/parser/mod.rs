@@ -8,6 +8,7 @@ mod object;
 mod operator;
 
 pub use binding::BindingType;
+pub use expression::PJsExpression;
 pub use operator::POperator;
 pub use operator::POperatorKind;
 
@@ -545,7 +546,7 @@ let z = x + y;
                         },
                         #[cfg(feature = "ts")]
                         ts_type: None,
-                        value: Some(PExpression::Atom(PAtom::Literal(
+                        value: Some(PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                             PLiteralPrimitive::Number {
                                 value: 30.0,
                                 token: Token::new(
@@ -554,7 +555,7 @@ let z = x + y;
                                     "30",
                                 ),
                             },
-                        ))),
+                        )))),
                     },
                     PStatement::Binding {
                         binding_type: BindingType::Let,
@@ -567,7 +568,7 @@ let z = x + y;
                         },
                         #[cfg(feature = "ts")]
                         ts_type: None,
-                        value: Some(PExpression::Atom(PAtom::Literal(
+                        value: Some(PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                             PLiteralPrimitive::Number {
                                 value: 100.0,
                                 token: Token::new(
@@ -576,7 +577,7 @@ let z = x + y;
                                     "100",
                                 ),
                             },
-                        ))),
+                        )))),
                     },
                     PStatement::Binding {
                         binding_type: BindingType::Let,
@@ -589,7 +590,7 @@ let z = x + y;
                         },
                         #[cfg(feature = "ts")]
                         ts_type: None,
-                        value: Some(PExpression::Cons(
+                        value: Some(PExpression::Js(PJsExpression::Cons(
                             POperator::new(
                                 POperatorKind::BinaryAdd,
                                 Token::new(
@@ -599,22 +600,26 @@ let z = x + y;
                                 ),
                             ),
                             vec![
-                                PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenKind::Identifier,
-                                        TokenLocation { row: 4, column: 9 },
-                                        "x",
-                                    ),
-                                })),
-                                PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenKind::Identifier,
-                                        TokenLocation { row: 4, column: 13 },
-                                        "y",
-                                    ),
-                                })),
+                                PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                                    PIdentifier {
+                                        token: Token::new(
+                                            TokenKind::Identifier,
+                                            TokenLocation { row: 4, column: 9 },
+                                            "x",
+                                        ),
+                                    },
+                                ))),
+                                PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                                    PIdentifier {
+                                        token: Token::new(
+                                            TokenKind::Identifier,
+                                            TokenLocation { row: 4, column: 13 },
+                                            "y",
+                                        ),
+                                    },
+                                ))),
                             ],
-                        )),
+                        ))),
                     },
                 ],
             },
@@ -652,7 +657,7 @@ y;
                         },
                         #[cfg(feature = "ts")]
                         ts_type: None,
-                        value: Some(PExpression::Atom(PAtom::Literal(
+                        value: Some(PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                             PLiteralPrimitive::Number {
                                 value: 1.0,
                                 token: Token::new(
@@ -661,7 +666,7 @@ y;
                                     "1",
                                 ),
                             },
-                        ))),
+                        )))),
                     },
                     PStatement::Block {
                         statements: vec![
@@ -676,7 +681,7 @@ y;
                                 },
                                 #[cfg(feature = "ts")]
                                 ts_type: None,
-                                value: Some(PExpression::Atom(PAtom::Literal(
+                                value: Some(PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                                     PLiteralPrimitive::Number {
                                         value: 2.0,
                                         token: Token::new(
@@ -685,10 +690,10 @@ y;
                                             "2",
                                         ),
                                     },
-                                ))),
+                                )))),
                             },
                             PStatement::Expression {
-                                expression: PExpression::Cons(
+                                expression: PExpression::Js(PJsExpression::Cons(
                                     POperator::new(
                                         POperatorKind::BinaryAdd,
                                         Token::new(
@@ -698,33 +703,39 @@ y;
                                         ),
                                     ),
                                     vec![
-                                        PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                            token: Token::new(
-                                                TokenKind::Identifier,
-                                                TokenLocation { row: 5, column: 5 },
-                                                "x",
-                                            ),
-                                        })),
-                                        PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                            token: Token::new(
-                                                TokenKind::Identifier,
-                                                TokenLocation { row: 5, column: 9 },
-                                                "y",
-                                            ),
-                                        })),
+                                        PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                                            PIdentifier {
+                                                token: Token::new(
+                                                    TokenKind::Identifier,
+                                                    TokenLocation { row: 5, column: 5 },
+                                                    "x",
+                                                ),
+                                            },
+                                        ))),
+                                        PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                                            PIdentifier {
+                                                token: Token::new(
+                                                    TokenKind::Identifier,
+                                                    TokenLocation { row: 5, column: 9 },
+                                                    "y",
+                                                ),
+                                            },
+                                        ))),
                                     ],
-                                ),
+                                )),
                             },
                         ],
                     },
                     PStatement::Expression {
-                        expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                            token: Token::new(
-                                TokenKind::Identifier,
-                                TokenLocation { row: 7, column: 1 },
-                                "y",
-                            ),
-                        })),
+                        expression: PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                            PIdentifier {
+                                token: Token::new(
+                                    TokenKind::Identifier,
+                                    TokenLocation { row: 7, column: 1 },
+                                    "y",
+                                ),
+                            },
+                        ))),
                     },
                 ],
             },

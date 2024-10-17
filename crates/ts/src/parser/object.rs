@@ -60,8 +60,9 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            parse_code, BindingType, PAtom, PExpression, PIdentifier, PKeyValue, PLiteralPrimitive,
-            PObject, PObjectEntry, PObjectKey, PStatement, ParseResult, ParseTree, ParseTreeRoot,
+            parse_code, BindingType, PAtom, PExpression, PIdentifier, PJsExpression, PKeyValue,
+            PLiteralPrimitive, PObject, PObjectEntry, PObjectKey, PStatement, ParseResult,
+            ParseTree, ParseTreeRoot,
         },
         tokenizer::{Token, TokenKind, TokenLocation},
     };
@@ -90,35 +91,39 @@ let code = {
                     },
                     #[cfg(feature = "ts")]
                     ts_type: None,
-                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
-                        start_token: Token::new(
-                            TokenKind::BraceOpen,
-                            TokenLocation { row: 2, column: 12 },
-                            "{",
-                        ),
-                        end_token: Token::new(
-                            TokenKind::BraceClose,
-                            TokenLocation { row: 4, column: 1 },
-                            "}",
-                        ),
-                        entries: vec![PObjectEntry::KeyValue(PKeyValue {
-                            key: PObjectKey::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenKind::Identifier,
-                                    TokenLocation { row: 3, column: 5 },
-                                    "a",
-                                ),
-                            }),
-                            value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 1.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 3, column: 8 },
-                                    "1",
-                                ),
-                            })),
-                        })],
-                    }))),
+                    value: Some(PExpression::Js(PJsExpression::Atom(PAtom::ObjectLiteral(
+                        PObject {
+                            start_token: Token::new(
+                                TokenKind::BraceOpen,
+                                TokenLocation { row: 2, column: 12 },
+                                "{",
+                            ),
+                            end_token: Token::new(
+                                TokenKind::BraceClose,
+                                TokenLocation { row: 4, column: 1 },
+                                "}",
+                            ),
+                            entries: vec![PObjectEntry::KeyValue(PKeyValue {
+                                key: PObjectKey::Identifier(PIdentifier {
+                                    token: Token::new(
+                                        TokenKind::Identifier,
+                                        TokenLocation { row: 3, column: 5 },
+                                        "a",
+                                    ),
+                                }),
+                                value: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                    PLiteralPrimitive::Number {
+                                        value: 1.0,
+                                        token: Token::new(
+                                            TokenKind::Literal,
+                                            TokenLocation { row: 3, column: 8 },
+                                            "1",
+                                        ),
+                                    },
+                                ))),
+                            })],
+                        },
+                    )))),
                 }],
             },
         };
@@ -151,58 +156,60 @@ let code = {
                     },
                     #[cfg(feature = "ts")]
                     ts_type: None,
-                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
-                        start_token: Token::new(
-                            TokenKind::BraceOpen,
-                            TokenLocation { row: 2, column: 12 },
-                            "{",
-                        ),
-                        end_token: Token::new(
-                            TokenKind::BraceClose,
-                            TokenLocation { row: 5, column: 1 },
-                            "}",
-                        ),
-                        entries: vec![
-                            PObjectEntry::KeyValue(PKeyValue {
-                                key: PObjectKey::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenKind::Identifier,
-                                        TokenLocation { row: 3, column: 5 },
-                                        "a",
-                                    ),
-                                }),
-                                value: PExpression::Atom(PAtom::Literal(
-                                    PLiteralPrimitive::Number {
-                                        value: 1.0,
+                    value: Some(PExpression::Js(PJsExpression::Atom(PAtom::ObjectLiteral(
+                        PObject {
+                            start_token: Token::new(
+                                TokenKind::BraceOpen,
+                                TokenLocation { row: 2, column: 12 },
+                                "{",
+                            ),
+                            end_token: Token::new(
+                                TokenKind::BraceClose,
+                                TokenLocation { row: 5, column: 1 },
+                                "}",
+                            ),
+                            entries: vec![
+                                PObjectEntry::KeyValue(PKeyValue {
+                                    key: PObjectKey::Identifier(PIdentifier {
                                         token: Token::new(
-                                            TokenKind::Literal,
-                                            TokenLocation { row: 3, column: 8 },
-                                            "1",
+                                            TokenKind::Identifier,
+                                            TokenLocation { row: 3, column: 5 },
+                                            "a",
                                         ),
-                                    },
-                                )),
-                            }),
-                            PObjectEntry::KeyValue(PKeyValue {
-                                key: PObjectKey::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenKind::Identifier,
-                                        TokenLocation { row: 4, column: 5 },
-                                        "b",
-                                    ),
+                                    }),
+                                    value: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                        PLiteralPrimitive::Number {
+                                            value: 1.0,
+                                            token: Token::new(
+                                                TokenKind::Literal,
+                                                TokenLocation { row: 3, column: 8 },
+                                                "1",
+                                            ),
+                                        },
+                                    ))),
                                 }),
-                                value: PExpression::Atom(PAtom::Literal(
-                                    PLiteralPrimitive::Number {
-                                        value: 3.0,
+                                PObjectEntry::KeyValue(PKeyValue {
+                                    key: PObjectKey::Identifier(PIdentifier {
                                         token: Token::new(
-                                            TokenKind::Literal,
-                                            TokenLocation { row: 4, column: 8 },
-                                            "3",
+                                            TokenKind::Identifier,
+                                            TokenLocation { row: 4, column: 5 },
+                                            "b",
                                         ),
-                                    },
-                                )),
-                            }),
-                        ],
-                    }))),
+                                    }),
+                                    value: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                        PLiteralPrimitive::Number {
+                                            value: 3.0,
+                                            token: Token::new(
+                                                TokenKind::Literal,
+                                                TokenLocation { row: 4, column: 8 },
+                                                "3",
+                                            ),
+                                        },
+                                    ))),
+                                }),
+                            ],
+                        },
+                    )))),
                 }],
             },
         };
@@ -234,35 +241,39 @@ let code = {
                     },
                     #[cfg(feature = "ts")]
                     ts_type: None,
-                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
-                        start_token: Token::new(
-                            TokenKind::BraceOpen,
-                            TokenLocation { row: 2, column: 12 },
-                            "{",
-                        ),
-                        end_token: Token::new(
-                            TokenKind::BraceClose,
-                            TokenLocation { row: 4, column: 1 },
-                            "}",
-                        ),
-                        entries: vec![PObjectEntry::KeyValue(PKeyValue {
-                            key: PObjectKey::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenKind::Identifier,
-                                    TokenLocation { row: 3, column: 5 },
-                                    "a",
-                                ),
-                            }),
-                            value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 1.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 3, column: 8 },
-                                    "1",
-                                ),
-                            })),
-                        })],
-                    }))),
+                    value: Some(PExpression::Js(PJsExpression::Atom(PAtom::ObjectLiteral(
+                        PObject {
+                            start_token: Token::new(
+                                TokenKind::BraceOpen,
+                                TokenLocation { row: 2, column: 12 },
+                                "{",
+                            ),
+                            end_token: Token::new(
+                                TokenKind::BraceClose,
+                                TokenLocation { row: 4, column: 1 },
+                                "}",
+                            ),
+                            entries: vec![PObjectEntry::KeyValue(PKeyValue {
+                                key: PObjectKey::Identifier(PIdentifier {
+                                    token: Token::new(
+                                        TokenKind::Identifier,
+                                        TokenLocation { row: 3, column: 5 },
+                                        "a",
+                                    ),
+                                }),
+                                value: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                    PLiteralPrimitive::Number {
+                                        value: 1.0,
+                                        token: Token::new(
+                                            TokenKind::Literal,
+                                            TokenLocation { row: 3, column: 8 },
+                                            "1",
+                                        ),
+                                    },
+                                ))),
+                            })],
+                        },
+                    )))),
                 }],
             },
         };
@@ -294,27 +305,29 @@ let code = {
                     },
                     #[cfg(feature = "ts")]
                     ts_type: None,
-                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
-                        start_token: Token::new(
-                            TokenKind::BraceOpen,
-                            TokenLocation { row: 2, column: 12 },
-                            "{",
-                        ),
-                        end_token: Token::new(
-                            TokenKind::BraceClose,
-                            TokenLocation { row: 4, column: 1 },
-                            "}",
-                        ),
-                        entries: vec![PObjectEntry::Destructure(PExpression::Atom(
-                            PAtom::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenKind::Identifier,
-                                    TokenLocation { row: 3, column: 8 },
-                                    "test",
-                                ),
-                            }),
-                        ))],
-                    }))),
+                    value: Some(PExpression::Js(PJsExpression::Atom(PAtom::ObjectLiteral(
+                        PObject {
+                            start_token: Token::new(
+                                TokenKind::BraceOpen,
+                                TokenLocation { row: 2, column: 12 },
+                                "{",
+                            ),
+                            end_token: Token::new(
+                                TokenKind::BraceClose,
+                                TokenLocation { row: 4, column: 1 },
+                                "}",
+                            ),
+                            entries: vec![PObjectEntry::Destructure(PExpression::Js(
+                                PJsExpression::Atom(PAtom::Identifier(PIdentifier {
+                                    token: Token::new(
+                                        TokenKind::Identifier,
+                                        TokenLocation { row: 3, column: 8 },
+                                        "test",
+                                    ),
+                                })),
+                            ))],
+                        },
+                    )))),
                 }],
             },
         };
@@ -346,48 +359,52 @@ let code = {
                     },
                     #[cfg(feature = "ts")]
                     ts_type: None,
-                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
-                        start_token: Token::new(
-                            TokenKind::BraceOpen,
-                            TokenLocation { row: 2, column: 12 },
-                            "{",
-                        ),
-                        end_token: Token::new(
-                            TokenKind::BraceClose,
-                            TokenLocation { row: 4, column: 1 },
-                            "}",
-                        ),
-                        entries: vec![PObjectEntry::KeyValue(PKeyValue {
-                            key: PObjectKey::Expression(PExpression::Atom(PAtom::Literal(
-                                PLiteralPrimitive::String {
-                                    value_token: Some(Token::new(
-                                        TokenKind::Literal,
-                                        TokenLocation { row: 3, column: 7 },
-                                        "key",
-                                    )),
-                                    value: "key",
-                                    start_delim: Token::new(
-                                        TokenKind::StringLiteralStart,
-                                        TokenLocation { row: 3, column: 6 },
-                                        "'",
-                                    ),
-                                    end_delim: Token::new(
-                                        TokenKind::StringLiteralEnd,
-                                        TokenLocation { row: 3, column: 10 },
-                                        "'",
-                                    ),
-                                },
-                            ))),
-                            value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 1.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 3, column: 14 },
-                                    "1",
-                                ),
-                            })),
-                        })],
-                    }))),
+                    value: Some(PExpression::Js(PJsExpression::Atom(PAtom::ObjectLiteral(
+                        PObject {
+                            start_token: Token::new(
+                                TokenKind::BraceOpen,
+                                TokenLocation { row: 2, column: 12 },
+                                "{",
+                            ),
+                            end_token: Token::new(
+                                TokenKind::BraceClose,
+                                TokenLocation { row: 4, column: 1 },
+                                "}",
+                            ),
+                            entries: vec![PObjectEntry::KeyValue(PKeyValue {
+                                key: PObjectKey::Expression(PExpression::Js(PJsExpression::Atom(
+                                    PAtom::Literal(PLiteralPrimitive::String {
+                                        value_token: Some(Token::new(
+                                            TokenKind::Literal,
+                                            TokenLocation { row: 3, column: 7 },
+                                            "key",
+                                        )),
+                                        value: "key",
+                                        start_delim: Token::new(
+                                            TokenKind::StringLiteralStart,
+                                            TokenLocation { row: 3, column: 6 },
+                                            "'",
+                                        ),
+                                        end_delim: Token::new(
+                                            TokenKind::StringLiteralEnd,
+                                            TokenLocation { row: 3, column: 10 },
+                                            "'",
+                                        ),
+                                    }),
+                                ))),
+                                value: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                    PLiteralPrimitive::Number {
+                                        value: 1.0,
+                                        token: Token::new(
+                                            TokenKind::Literal,
+                                            TokenLocation { row: 3, column: 14 },
+                                            "1",
+                                        ),
+                                    },
+                                ))),
+                            })],
+                        },
+                    )))),
                 }],
             },
         };
@@ -419,29 +436,35 @@ let code = {
                     },
                     #[cfg(feature = "ts")]
                     ts_type: None,
-                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
-                        start_token: Token::new(
-                            TokenKind::BraceOpen,
-                            TokenLocation { row: 2, column: 12 },
-                            "{",
-                        ),
-                        end_token: Token::new(
-                            TokenKind::BraceClose,
-                            TokenLocation { row: 4, column: 1 },
-                            "}",
-                        ),
-                        entries: vec![PObjectEntry::KeyValue(PKeyValue {
-                            key: PObjectKey::Literal(PLiteralPrimitive::string("key", 3, 5, "'")),
-                            value: PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 1.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 3, column: 12 },
-                                    "1",
-                                ),
-                            })),
-                        })],
-                    }))),
+                    value: Some(PExpression::Js(PJsExpression::Atom(PAtom::ObjectLiteral(
+                        PObject {
+                            start_token: Token::new(
+                                TokenKind::BraceOpen,
+                                TokenLocation { row: 2, column: 12 },
+                                "{",
+                            ),
+                            end_token: Token::new(
+                                TokenKind::BraceClose,
+                                TokenLocation { row: 4, column: 1 },
+                                "}",
+                            ),
+                            entries: vec![PObjectEntry::KeyValue(PKeyValue {
+                                key: PObjectKey::Literal(PLiteralPrimitive::string(
+                                    "key", 3, 5, "'",
+                                )),
+                                value: PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                    PLiteralPrimitive::Number {
+                                        value: 1.0,
+                                        token: Token::new(
+                                            TokenKind::Literal,
+                                            TokenLocation { row: 3, column: 12 },
+                                            "1",
+                                        ),
+                                    },
+                                ))),
+                            })],
+                        },
+                    )))),
                 }],
             },
         };
@@ -467,19 +490,21 @@ let code = {
                     },
                     #[cfg(feature = "ts")]
                     ts_type: None,
-                    value: Some(PExpression::Atom(PAtom::ObjectLiteral(PObject {
-                        entries: vec![],
-                        start_token: Token::new(
-                            TokenKind::BraceOpen,
-                            TokenLocation { row: 1, column: 9 },
-                            "{",
-                        ),
-                        end_token: Token::new(
-                            TokenKind::BraceClose,
-                            TokenLocation { row: 1, column: 10 },
-                            "}",
-                        ),
-                    }))),
+                    value: Some(PExpression::Js(PJsExpression::Atom(PAtom::ObjectLiteral(
+                        PObject {
+                            entries: vec![],
+                            start_token: Token::new(
+                                TokenKind::BraceOpen,
+                                TokenLocation { row: 1, column: 9 },
+                                "{",
+                            ),
+                            end_token: Token::new(
+                                TokenKind::BraceClose,
+                                TokenLocation { row: 1, column: 10 },
+                                "}",
+                            ),
+                        },
+                    )))),
                 }],
             },
         };

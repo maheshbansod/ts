@@ -50,7 +50,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parser::{PAtom, PExpression, PLiteralPrimitive, Parser},
+        parser::{PAtom, PExpression, PJsExpression, PLiteralPrimitive, Parser},
         tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
     };
 
@@ -61,24 +61,26 @@ mod tests {
         let mut parser = Parser::new(tokenizer);
         assert_eq!(
             parser.parse_expression().expect("should parse"),
-            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::String {
-                value: "1",
-                start_delim: Token::new(
-                    TokenKind::StringLiteralStart,
-                    TokenLocation { row: 1, column: 1 },
-                    "'"
-                ),
-                value_token: Some(Token::new(
-                    TokenKind::Literal,
-                    TokenLocation { row: 1, column: 2 },
-                    "1"
-                )),
-                end_delim: Token::new(
-                    TokenKind::StringLiteralEnd,
-                    TokenLocation { row: 1, column: 3 },
-                    "'"
-                ),
-            }))
+            PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                PLiteralPrimitive::String {
+                    value: "1",
+                    start_delim: Token::new(
+                        TokenKind::StringLiteralStart,
+                        TokenLocation { row: 1, column: 1 },
+                        "'"
+                    ),
+                    value_token: Some(Token::new(
+                        TokenKind::Literal,
+                        TokenLocation { row: 1, column: 2 },
+                        "1"
+                    )),
+                    end_delim: Token::new(
+                        TokenKind::StringLiteralEnd,
+                        TokenLocation { row: 1, column: 3 },
+                        "'"
+                    ),
+                }
+            )))
         );
     }
 
@@ -89,20 +91,22 @@ mod tests {
         let mut parser = Parser::new(tokenizer);
         assert_eq!(
             parser.parse_expression().expect("should parse"),
-            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::String {
-                value: "",
-                start_delim: Token::new(
-                    TokenKind::StringLiteralStart,
-                    TokenLocation { row: 1, column: 1 },
-                    "'"
-                ),
-                value_token: None,
-                end_delim: Token::new(
-                    TokenKind::StringLiteralEnd,
-                    TokenLocation { row: 1, column: 2 },
-                    "'"
-                ),
-            }))
+            PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                PLiteralPrimitive::String {
+                    value: "",
+                    start_delim: Token::new(
+                        TokenKind::StringLiteralStart,
+                        TokenLocation { row: 1, column: 1 },
+                        "'"
+                    ),
+                    value_token: None,
+                    end_delim: Token::new(
+                        TokenKind::StringLiteralEnd,
+                        TokenLocation { row: 1, column: 2 },
+                        "'"
+                    ),
+                }
+            )))
         );
     }
 }

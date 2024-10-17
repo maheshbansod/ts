@@ -6,11 +6,24 @@ use super::{operator::POperator, PAtom, PIdentifier, ParseResult, Parser, Parser
 
 #[derive(Debug, PartialEq)]
 pub enum PExpression<'a> {
+    Js(PJsExpression<'a>),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum PJsExpression<'a> {
     Atom(PAtom<'a>),
     Cons(POperator<'a>, Vec<PExpression<'a>>),
 }
 
 impl<'a> PExpression<'a> {
+    pub fn one_token(&self) -> &Token<'a> {
+        match self {
+            Self::Js(exp) => exp.one_token(),
+        }
+    }
+}
+
+impl<'a> PJsExpression<'a> {
     pub fn one_token(&self) -> &Token<'a> {
         match self {
             Self::Atom(atom) => atom.one_token(),
@@ -22,8 +35,16 @@ impl<'a> PExpression<'a> {
 impl<'a> Display for PExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PExpression::Atom(atom) => write!(f, "{atom}"),
-            PExpression::Cons(operator, rest) => {
+            Self::Js(exp) => write!(f, "{exp}"),
+        }
+    }
+}
+
+impl<'a> Display for PJsExpression<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Atom(atom) => write!(f, "{atom}"),
+            Self::Cons(operator, rest) => {
                 write!(f, "{operator} (")?;
                 for expr in rest {
                     write!(f, "{expr} ")?;
@@ -61,9 +82,9 @@ impl<'a> Parser<'a> {
             self.try_parse_prefix_operator(min_binding_power)
         {
             let rhs = self.parse_expression_pratt(r_bp)?;
-            PExpression::Cons(operator, vec![rhs])
+            PExpression::Js(PJsExpression::Cons(operator, vec![rhs]))
         } else if let (Some(atom), _errors) = self.try_parse_atom()? {
-            PExpression::Atom(atom)
+            PExpression::Js(PJsExpression::Atom(atom))
         } else if self.expect_token(TokenKind::ParenthesisOpen).is_ok() {
             let expression = self.parse_expression()?;
             self.expect_token(TokenKind::ParenthesisClose)?;
@@ -99,15 +120,15 @@ impl<'a> Parser<'a> {
                     }
                     let mut call_args = vec![lhs];
                     call_args.extend(args);
-                    lhs = PExpression::Cons(operator, call_args);
+                    lhs = PExpression::Js(PJsExpression::Cons(operator, call_args));
                 } else if operator.token_type() == &TokenKind::QuestionMark {
                     let mhs = self.parse_expression_pratt(r_bp)?;
                     self.expect_token(TokenKind::Colon)?;
                     let rhs = self.parse_expression_pratt(r_bp)?;
-                    lhs = PExpression::Cons(operator, vec![lhs, mhs, rhs]);
+                    lhs = PExpression::Js(PJsExpression::Cons(operator, vec![lhs, mhs, rhs]));
                 } else {
                     let rhs = self.parse_expression_pratt(r_bp)?;
-                    lhs = PExpression::Cons(operator, vec![lhs, rhs]);
+                    lhs = PExpression::Js(PJsExpression::Cons(operator, vec![lhs, rhs]));
                 }
 
                 continue;
@@ -119,9 +140,9 @@ impl<'a> Parser<'a> {
                     // subscript operator []
                     let expression = self.parse_expression()?;
                     self.expect_token(TokenKind::SquareBracketClose)?;
-                    lhs = PExpression::Cons(operator, vec![lhs, expression]);
+                    lhs = PExpression::Js(PJsExpression::Cons(operator, vec![lhs, expression]));
                 } else {
-                    lhs = PExpression::Cons(operator, vec![lhs]);
+                    lhs = PExpression::Js(PJsExpression::Cons(operator, vec![lhs]));
                 }
 
                 continue;
@@ -162,7 +183,7 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            expression::{PExpression, POperator},
+            expression::{PExpression, PJsExpression, POperator},
             operator::POperatorKind,
             parse_code, PAtom, PIdentifier, PLiteralPrimitive, PStatement, ParseResult, ParseTree,
             ParseTreeRoot, Parser,
@@ -178,23 +199,25 @@ mod tests {
         let mut parser = Parser::new(tokenizer);
         assert_eq!(
             parser.parse_expression().expect("should parse"),
-            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                value: 1.0,
-                token: Token::new(TokenKind::Literal, TokenLocation { row: 1, column: 1 }, "1")
-            }))
+            PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                PLiteralPrimitive::Number {
+                    value: 1.0,
+                    token: Token::new(TokenKind::Literal, TokenLocation { row: 1, column: 1 }, "1")
+                }
+            )))
         );
         let code = "ident";
         let tokenizer = Tokenizer::new(code);
         let mut parser = Parser::new(tokenizer);
         assert_eq!(
             parser.parse_expression().expect("should parse"),
-            PExpression::Atom(PAtom::Identifier(PIdentifier {
+            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
                 token: Token::new(
                     TokenKind::Identifier,
                     TokenLocation { row: 1, column: 1 },
                     "ident"
                 )
-            }))
+            })))
         );
     }
 
@@ -269,13 +292,15 @@ mod tests {
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
-                    expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                        token: Token::new(
-                            TokenKind::Identifier,
-                            TokenLocation { row: 1, column: 1 },
-                            "y",
-                        ),
-                    })),
+                    expression: PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                        PIdentifier {
+                            token: Token::new(
+                                TokenKind::Identifier,
+                                TokenLocation { row: 1, column: 1 },
+                                "y",
+                            ),
+                        },
+                    ))),
                 }],
             },
         };
@@ -289,7 +314,7 @@ mod tests {
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
-                    expression: PExpression::Cons(
+                    expression: PExpression::Js(PJsExpression::Cons(
                         POperator {
                             kind: POperatorKind::Subtract,
                             token: Token::new(
@@ -299,24 +324,28 @@ mod tests {
                             ),
                         },
                         vec![
-                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 3.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 1, column: 1 },
-                                    "3",
-                                ),
-                            })),
-                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 2.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 1, column: 5 },
-                                    "2",
-                                ),
-                            })),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 3.0,
+                                    token: Token::new(
+                                        TokenKind::Literal,
+                                        TokenLocation { row: 1, column: 1 },
+                                        "3",
+                                    ),
+                                },
+                            ))),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 2.0,
+                                    token: Token::new(
+                                        TokenKind::Literal,
+                                        TokenLocation { row: 1, column: 5 },
+                                        "2",
+                                    ),
+                                },
+                            ))),
                         ],
-                    ),
+                    )),
                 }],
             },
         };
@@ -331,7 +360,7 @@ mod tests {
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
-                    expression: PExpression::Cons(
+                    expression: PExpression::Js(PJsExpression::Cons(
                         POperator {
                             kind: POperatorKind::Multiply,
                             token: Token::new(
@@ -341,24 +370,28 @@ mod tests {
                             ),
                         },
                         vec![
-                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 3.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 1, column: 1 },
-                                    "3",
-                                ),
-                            })),
-                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 2.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 1, column: 5 },
-                                    "2",
-                                ),
-                            })),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 3.0,
+                                    token: Token::new(
+                                        TokenKind::Literal,
+                                        TokenLocation { row: 1, column: 1 },
+                                        "3",
+                                    ),
+                                },
+                            ))),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 2.0,
+                                    token: Token::new(
+                                        TokenKind::Literal,
+                                        TokenLocation { row: 1, column: 5 },
+                                        "2",
+                                    ),
+                                },
+                            ))),
                         ],
-                    ),
+                    )),
                 }],
             },
         };
@@ -373,7 +406,7 @@ mod tests {
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
-                    expression: PExpression::Cons(
+                    expression: PExpression::Js(PJsExpression::Cons(
                         POperator {
                             kind: POperatorKind::Divide,
                             token: (Token::new(
@@ -383,24 +416,28 @@ mod tests {
                             )),
                         },
                         vec![
-                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 3.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 1, column: 1 },
-                                    "3",
-                                ),
-                            })),
-                            PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                value: 2.0,
-                                token: Token::new(
-                                    TokenKind::Literal,
-                                    TokenLocation { row: 1, column: 5 },
-                                    "2",
-                                ),
-                            })),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 3.0,
+                                    token: Token::new(
+                                        TokenKind::Literal,
+                                        TokenLocation { row: 1, column: 1 },
+                                        "3",
+                                    ),
+                                },
+                            ))),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                PLiteralPrimitive::Number {
+                                    value: 2.0,
+                                    token: Token::new(
+                                        TokenKind::Literal,
+                                        TokenLocation { row: 1, column: 5 },
+                                        "2",
+                                    ),
+                                },
+                            ))),
                         ],
-                    ),
+                    )),
                 }],
             },
         };
@@ -422,7 +459,7 @@ mod tests {
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
-                    expression: PExpression::Cons(
+                    expression: PExpression::Js(PJsExpression::Cons(
                         POperator {
                             kind: POperatorKind::BinaryAdd,
                             token: Token::new(
@@ -432,7 +469,7 @@ mod tests {
                             ),
                         },
                         vec![
-                            PExpression::Cons(
+                            PExpression::Js(PJsExpression::Cons(
                                 POperator {
                                     kind: POperatorKind::BinaryAdd,
                                     token: Token::new(
@@ -442,15 +479,17 @@ mod tests {
                                     ),
                                 },
                                 vec![
-                                    PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                        value: 3.0,
-                                        token: Token::new(
-                                            TokenKind::Literal,
-                                            TokenLocation { row: 1, column: 1 },
-                                            "3",
-                                        ),
-                                    })),
-                                    PExpression::Cons(
+                                    PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                        PLiteralPrimitive::Number {
+                                            value: 3.0,
+                                            token: Token::new(
+                                                TokenKind::Literal,
+                                                TokenLocation { row: 1, column: 1 },
+                                                "3",
+                                            ),
+                                        },
+                                    ))),
+                                    PExpression::Js(PJsExpression::Cons(
                                         POperator {
                                             kind: POperatorKind::PostIncrement,
                                             token: Token::new(
@@ -459,17 +498,19 @@ mod tests {
                                                 "++",
                                             ),
                                         },
-                                        vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                            token: Token::new(
-                                                TokenKind::Identifier,
-                                                TokenLocation { row: 1, column: 5 },
-                                                "a",
-                                            ),
-                                        }))],
-                                    ),
+                                        vec![PExpression::Js(PJsExpression::Atom(
+                                            PAtom::Identifier(PIdentifier {
+                                                token: Token::new(
+                                                    TokenKind::Identifier,
+                                                    TokenLocation { row: 1, column: 5 },
+                                                    "a",
+                                                ),
+                                            }),
+                                        ))],
+                                    )),
                                 ],
-                            ),
-                            PExpression::Cons(
+                            )),
+                            PExpression::Js(PJsExpression::Cons(
                                 POperator {
                                     kind: POperatorKind::PreIncrement,
                                     token: Token::new(
@@ -478,16 +519,18 @@ mod tests {
                                         "++",
                                     ),
                                 },
-                                vec![PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                    token: Token::new(
-                                        TokenKind::Identifier,
-                                        TokenLocation { row: 1, column: 13 },
-                                        "b",
-                                    ),
-                                }))],
-                            ),
+                                vec![PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                                    PIdentifier {
+                                        token: Token::new(
+                                            TokenKind::Identifier,
+                                            TokenLocation { row: 1, column: 13 },
+                                            "b",
+                                        ),
+                                    },
+                                )))],
+                            )),
                         ],
-                    ),
+                    )),
                 }],
             },
         };
@@ -502,7 +545,7 @@ mod tests {
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
-                    expression: PExpression::Cons(
+                    expression: PExpression::Js(PJsExpression::Cons(
                         POperator {
                             kind: POperatorKind::FunctionCall,
                             token: Token::new(
@@ -512,29 +555,29 @@ mod tests {
                             ),
                         },
                         vec![
-                            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
                                     TokenKind::Identifier,
                                     TokenLocation { row: 1, column: 1 },
                                     "foo",
                                 ),
-                            })),
-                            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                            }))),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
                                     TokenKind::Identifier,
                                     TokenLocation { row: 1, column: 5 },
                                     "a",
                                 ),
-                            })),
-                            PExpression::Atom(PAtom::Identifier(PIdentifier {
+                            }))),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
                                     TokenKind::Identifier,
                                     TokenLocation { row: 1, column: 8 },
                                     "b",
                                 ),
-                            })),
+                            }))),
                         ],
-                    ),
+                    )),
                 }],
             },
         };

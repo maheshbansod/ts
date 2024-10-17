@@ -45,8 +45,8 @@ mod tests {
     use crate::{
         parser::{
             operator::{POperator, POperatorKind},
-            BindingType, PAtom, PExpression, PFunction, PIdentifier, PLiteralPrimitive, PStatement,
-            ParseTree, ParseTreeRoot, Parser,
+            BindingType, PAtom, PExpression, PFunction, PIdentifier, PJsExpression,
+            PLiteralPrimitive, PStatement, ParseTree, ParseTreeRoot, Parser,
         },
         tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
     };
@@ -65,7 +65,7 @@ let y = x+1;
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
-                    expression: PExpression::Atom(PAtom::Function(PFunction {
+                    expression: PExpression::Js(PJsExpression::Atom(PAtom::Function(PFunction {
                         identifier: Some(PIdentifier {
                             token: Token::new(
                                 TokenKind::Identifier,
@@ -85,7 +85,7 @@ let y = x+1;
                             },
                             #[cfg(feature = "ts")]
                             ts_type: None,
-                            value: Some(PExpression::Cons(
+                            value: Some(PExpression::Js(PJsExpression::Cons(
                                 POperator::new(
                                     POperatorKind::BinaryAdd,
                                     Token::new(
@@ -95,25 +95,29 @@ let y = x+1;
                                     ),
                                 ),
                                 vec![
-                                    PExpression::Atom(PAtom::Identifier(PIdentifier {
-                                        token: Token::new(
-                                            TokenKind::Identifier,
-                                            TokenLocation { row: 3, column: 9 },
-                                            "x",
-                                        ),
-                                    })),
-                                    PExpression::Atom(PAtom::Literal(PLiteralPrimitive::Number {
-                                        value: 1.0,
-                                        token: Token::new(
-                                            TokenKind::Literal,
-                                            TokenLocation { row: 3, column: 11 },
-                                            "1",
-                                        ),
-                                    })),
+                                    PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                                        PIdentifier {
+                                            token: Token::new(
+                                                TokenKind::Identifier,
+                                                TokenLocation { row: 3, column: 9 },
+                                                "x",
+                                            ),
+                                        },
+                                    ))),
+                                    PExpression::Js(PJsExpression::Atom(PAtom::Literal(
+                                        PLiteralPrimitive::Number {
+                                            value: 1.0,
+                                            token: Token::new(
+                                                TokenKind::Literal,
+                                                TokenLocation { row: 3, column: 11 },
+                                                "1",
+                                            ),
+                                        },
+                                    ))),
                                 ],
-                            )),
+                            ))),
                         }],
-                    })),
+                    }))),
                 }],
             },
         };
@@ -142,11 +146,13 @@ let x = function () {};
                     },
                     #[cfg(feature = "ts")]
                     ts_type: None,
-                    value: Some(PExpression::Atom(PAtom::Function(PFunction {
-                        identifier: None,
-                        arguments: vec![],
-                        body: vec![],
-                    }))),
+                    value: Some(PExpression::Js(PJsExpression::Atom(PAtom::Function(
+                        PFunction {
+                            identifier: None,
+                            arguments: vec![],
+                            body: vec![],
+                        },
+                    )))),
                 }],
             },
         };
@@ -165,7 +171,7 @@ function foo(arg1, arg2) {}
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
-                    expression: PExpression::Atom(PAtom::Function(PFunction {
+                    expression: PExpression::Js(PJsExpression::Atom(PAtom::Function(PFunction {
                         identifier: Some(PIdentifier {
                             token: Token::new(
                                 TokenKind::Identifier,
@@ -190,7 +196,7 @@ function foo(arg1, arg2) {}
                             },
                         ],
                         body: vec![],
-                    })),
+                    }))),
                 }],
             },
         };

@@ -24,8 +24,8 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::{
         parser::{
-            parse_code, PAtom, PExpression, PIdentifier, PStatement, ParseResult, ParseTree,
-            ParseTreeRoot,
+            parse_code, PAtom, PExpression, PIdentifier, PJsExpression, PStatement, ParseResult,
+            ParseTree, ParseTreeRoot,
         },
         tokenizer::{Token, TokenKind, TokenLocation},
     };
@@ -37,13 +37,15 @@ mod tests {
         let expected_tree = ParseTree {
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
-                    expression: PExpression::Atom(PAtom::Identifier(PIdentifier {
-                        token: Token::new(
-                            TokenKind::Identifier,
-                            TokenLocation { row: 1, column: 1 },
-                            "x",
-                        ),
-                    })),
+                    expression: PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                        PIdentifier {
+                            token: Token::new(
+                                TokenKind::Identifier,
+                                TokenLocation { row: 1, column: 1 },
+                                "x",
+                            ),
+                        },
+                    ))),
                 }],
             },
         };
