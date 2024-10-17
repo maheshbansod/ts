@@ -4,7 +4,7 @@ use crate::tokenizer::TokenKind;
 
 #[cfg(feature = "ts")]
 use super::expression::PTsExpression;
-use super::{PStatement, ParseResult, Parser};
+use super::{PExpression, PStatement, ParseResult, Parser};
 
 #[cfg(feature = "ts")]
 use super::PTsAtom;
@@ -29,7 +29,7 @@ impl<'a> Parser<'a> {
                     id if id.to_string() == "any" => PTsAtom::Any(id.token),
                     id => PTsAtom::Identifier(id),
                 })
-                .map(|t| PTsExpression::Atom(t))
+                .map(|t| PExpression::Ts(PTsExpression::Atom(t)))
         } else {
             None
         };
@@ -178,10 +178,12 @@ let x: number = 4;
                             "x",
                         ),
                     },
-                    ts_type: Some(PTsExpression::Atom(PTsAtom::Number(Token::new(
-                        TokenKind::Identifier,
-                        TokenLocation { row: 2, column: 8 },
-                        "number",
+                    ts_type: Some(PExpression::Ts(PTsExpression::Atom(PTsAtom::Number(
+                        Token::new(
+                            TokenKind::Identifier,
+                            TokenLocation { row: 2, column: 8 },
+                            "number",
+                        ),
                     )))),
                     value: Some(PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                         PLiteralPrimitive::Number {

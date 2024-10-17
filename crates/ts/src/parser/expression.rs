@@ -10,6 +10,8 @@ use super::{operator::PTsOperator, PTsAtom};
 #[derive(Debug, PartialEq)]
 pub enum PExpression<'a> {
     Js(PJsExpression<'a>),
+    #[cfg(feature = "ts")]
+    Ts(PTsExpression<'a>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -29,6 +31,18 @@ impl<'a> PExpression<'a> {
     pub fn one_token(&self) -> &Token<'a> {
         match self {
             Self::Js(exp) => exp.one_token(),
+            #[cfg(feature = "ts")]
+            Self::Ts(exp) => exp.one_token(),
+        }
+    }
+}
+
+#[cfg(feature = "ts")]
+impl<'a> PTsExpression<'a> {
+    pub fn one_token(&self) -> &Token<'a> {
+        match self {
+            Self::Atom(atom) => atom.start_token(),
+            Self::Cons(operator, _args) => &operator.token,
         }
     }
 }
@@ -46,6 +60,8 @@ impl<'a> Display for PExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Js(exp) => write!(f, "{exp}"),
+            #[cfg(feature = "ts")]
+            Self::Ts(exp) => write!(f, "{exp}"),
         }
     }
 }

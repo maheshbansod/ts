@@ -173,7 +173,7 @@ pub enum PStatement<'a> {
         identifier: PIdentifier<'a>,
         value: Option<PExpression<'a>>,
         #[cfg(feature = "ts")]
-        ts_type: Option<PTsExpression<'a>>,
+        ts_type: Option<PExpression<'a>>,
     },
     Block {
         statements: Vec<PStatement<'a>>,
@@ -193,6 +193,8 @@ pub enum PTsAtom<'a> {
     Number(Token<'a>),
     String(Token<'a>),
     Identifier(PIdentifier<'a>),
+    // Literal(TsLiteralPrimitive<'a>),
+    // Object(TsObjectLiteral<'a>),
 }
 
 #[cfg(feature = "ts")]

@@ -15,7 +15,7 @@ use crate::{
 };
 
 #[cfg(feature = "ts")]
-use crate::parser::PTsExpression;
+use crate::parser::{PTsAtom, PTsExpression};
 
 pub struct Checker<'a> {
     tree: &'a ParseTree<'a>,
@@ -44,16 +44,43 @@ impl<'a> Checker<'a> {
                     identifier,
                     value,
                     #[cfg(feature = "ts")]
-                        ts_type: _,
+                    ts_type,
                 } => {
                     let identifier_name = identifier.name();
-                    if let Some(value) = value {
-                        let mut ts_type = self.expression(value);
-                        if matches!(binding_type, BindingType::Let) {
-                            if let TsType::Literal(literal) = ts_type.kind {
-                                ts_type.kind = literal.wider();
+                    #[cfg(feature = "ts")]
+                    let ts_type = ts_type.as_ref().map(|t| self.expression(t));
+                    let final_type = if let Some(value) = value {
+                        let mut rhs_type = self.expression(value);
+                        let rhs_kind = rhs_type.kind.clone();
+                        #[cfg(feature = "ts")]
+                        if let Some(ts_type) = &ts_type {
+                            if !ts_type.kind.contains(&rhs_kind) {
+                                self.errors.push(TsError {
+                                    kind: TypeErrorKind::ExpectedType {
+                                        got: rhs_type.clone(),
+                                        expected: ts_type.kind.clone(),
+                                    },
+                                })
                             }
                         }
+                        if matches!(binding_type, BindingType::Let) {
+                            if let TsType::Literal(literal) = rhs_kind {
+                                rhs_type.kind = literal.wider();
+                            }
+                        }
+                        Some(rhs_type)
+                    } else {
+                        None
+                    };
+                    #[cfg(feature = "ts")]
+                    let final_type = if let Some(ts_type) = ts_type {
+                        Some(ts_type)
+                    } else if let Some(final_type) = final_type {
+                        Some(final_type)
+                    } else {
+                        None
+                    };
+                    if let Some(ts_type) = final_type {
                         let sym = TsSymbol::new(binding_type, identifier, ts_type);
                         if let Err(e) = self.add_to_scope(identifier_name, sym) {
                             self.errors.push(e);
@@ -107,6 +134,11 @@ impl<'a> Checker<'a> {
                         holding_for: expression,
                     }
                 }
+            },
+            #[cfg(feature = "ts")]
+            PExpression::Ts(ts_exp) => TsTypeHolder {
+                kind: TsType::from_type_expression(&ts_exp),
+                holding_for: &expression,
             },
         }
     }
@@ -421,9 +453,23 @@ pub struct TsTypeHolder<'a, 'b> {
 }
 
 impl<'a> TsType<'a> {
+    /// Maybe move this method to TsObject
     fn resolve_member_access_type(&self, ident: &PIdentifier<'a>) -> Option<TsType<'a>> {
         match &self {
             TsType::Object(object) => object.get(&ident.to_string()).map(|t| t.kind),
+            _ => todo!(),
+        }
+    }
+
+    #[cfg(feature = "ts")]
+    fn from_type_expression(expression: &PTsExpression<'a>) -> TsType<'a> {
+        match expression {
+            PTsExpression::Atom(atom) => match atom {
+                PTsAtom::String(_) => TsType::String,
+                PTsAtom::Number(_) => TsType::Number,
+                PTsAtom::Any(_) => TsType::Any,
+                PTsAtom::Identifier(_) => todo!(),
+            },
             _ => todo!(),
         }
     }
