@@ -4,6 +4,9 @@ use crate::tokenizer::{Token, TokenKind};
 
 use super::{operator::POperator, PAtom, PIdentifier, ParseResult, Parser, ParserError};
 
+#[cfg(feature = "ts")]
+use super::{operator::PTsOperator, PTsAtom};
+
 #[derive(Debug, PartialEq)]
 pub enum PExpression<'a> {
     Js(PJsExpression<'a>),
@@ -13,6 +16,13 @@ pub enum PExpression<'a> {
 pub enum PJsExpression<'a> {
     Atom(PAtom<'a>),
     Cons(POperator<'a>, Vec<PExpression<'a>>),
+}
+
+#[derive(Debug, PartialEq)]
+#[cfg(feature = "ts")]
+pub enum PTsExpression<'a> {
+    Atom(PTsAtom<'a>),
+    Cons(PTsOperator<'a>, Vec<PTsExpression<'a>>),
 }
 
 impl<'a> PExpression<'a> {
@@ -40,6 +50,22 @@ impl<'a> Display for PExpression<'a> {
     }
 }
 
+impl<'a> Display for PTsExpression<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Atom(atom) => write!(f, "{atom}"),
+            Self::Cons(_operator, _rest) => {
+                todo!()
+                // write!(f, "{operator} (")?;
+                // for expr in rest {
+                //     write!(f, "{expr} ")?;
+                // }
+                // write!(f, ")")
+            }
+        }
+    }
+}
+
 impl<'a> Display for PJsExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -62,8 +88,6 @@ impl<'a> Display for PAtom<'a> {
             PAtom::ObjectLiteral(object) => write!(f, "{{{object}}}"),
             PAtom::Identifier(identifier) => write!(f, "{identifier}"),
             PAtom::Function(function) => write!(f, "{function}"),
-            #[cfg(feature = "ts")]
-            PAtom::Type(t) => write!(f, "{t}"),
         }
     }
 }

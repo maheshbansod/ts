@@ -2,10 +2,10 @@ use std::fmt::Display;
 
 use crate::tokenizer::TokenKind;
 
-use super::{PStatement, ParseResult, Parser};
+use super::{expression::PTsExpression, PStatement, ParseResult, Parser};
 
 #[cfg(feature = "ts")]
-use super::PType;
+use super::PTsAtom;
 
 impl<'a> Parser<'a> {
     /// Parse binding type statement - assume the next token is already checked to be
@@ -22,11 +22,12 @@ impl<'a> Parser<'a> {
             self.parse_identifier()
                 .ok()
                 .map(|identifier| match identifier {
-                    id if id.to_string() == "number" => PType::Number(id.token),
-                    id if id.to_string() == "string" => PType::String(id.token),
-                    id if id.to_string() == "any" => PType::Any(id.token),
-                    id => PType::Identifier(id),
+                    id if id.to_string() == "number" => PTsAtom::Number(id.token),
+                    id if id.to_string() == "string" => PTsAtom::String(id.token),
+                    id if id.to_string() == "any" => PTsAtom::Any(id.token),
+                    id => PTsAtom::Identifier(id),
                 })
+                .map(|t| PTsExpression::Atom(t))
         } else {
             None
         };
@@ -155,7 +156,7 @@ var z;
     #[test]
     #[cfg(feature = "ts")]
     fn binding_with_type() -> Result<(), Box<dyn Error>> {
-        use crate::parser::{PJsExpression, PType};
+        use crate::parser::{expression::PTsExpression, PJsExpression, PTsAtom};
 
         let code = "
 let x: number = 4;
@@ -175,11 +176,11 @@ let x: number = 4;
                             "x",
                         ),
                     },
-                    ts_type: Some(PType::Number(Token::new(
+                    ts_type: Some(PTsExpression::Atom(PTsAtom::Number(Token::new(
                         TokenKind::Identifier,
                         TokenLocation { row: 2, column: 8 },
                         "number",
-                    ))),
+                    )))),
                     value: Some(PExpression::Js(PJsExpression::Atom(PAtom::Literal(
                         PLiteralPrimitive::Number {
                             value: 4.0,

@@ -9,6 +9,7 @@ mod operator;
 
 pub use binding::BindingType;
 pub use expression::PJsExpression;
+use expression::PTsExpression;
 pub use operator::POperator;
 pub use operator::POperatorKind;
 
@@ -171,7 +172,7 @@ pub enum PStatement<'a> {
         identifier: PIdentifier<'a>,
         value: Option<PExpression<'a>>,
         #[cfg(feature = "ts")]
-        ts_type: Option<PType<'a>>,
+        ts_type: Option<PTsExpression<'a>>,
     },
     Block {
         statements: Vec<PStatement<'a>>,
@@ -186,7 +187,7 @@ pub enum PStatement<'a> {
 
 #[derive(Debug, PartialEq)]
 #[cfg(feature = "ts")]
-pub enum PType<'a> {
+pub enum PTsAtom<'a> {
     Any(Token<'a>),
     Number(Token<'a>),
     String(Token<'a>),
@@ -194,7 +195,7 @@ pub enum PType<'a> {
 }
 
 #[cfg(feature = "ts")]
-impl<'a> PType<'a> {
+impl<'a> PTsAtom<'a> {
     fn start_token(&self) -> &Token<'a> {
         match &self {
             Self::Identifier(id) => &id.token,
@@ -265,8 +266,6 @@ pub enum PAtom<'a> {
     ObjectLiteral(PObject<'a>),
     Identifier(PIdentifier<'a>),
     Function(PFunction<'a>),
-    #[cfg(feature = "ts")]
-    Type(PType<'a>),
 }
 
 impl<'a> PAtom<'a> {
@@ -282,8 +281,6 @@ impl<'a> PAtom<'a> {
             }
             Self::Identifier(id) => &id.token,
             Self::ObjectLiteral(obj) => &obj.start_token,
-            #[cfg(feature = "ts")]
-            Self::Type(t) => t.start_token(),
         }
     }
 }
@@ -449,7 +446,7 @@ impl<'a> Display for PIdentifier<'a> {
 }
 
 #[cfg(feature = "ts")]
-impl<'a> Display for PType<'a> {
+impl<'a> Display for PTsAtom<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Identifier(identifier) => write!(f, "{identifier}"),

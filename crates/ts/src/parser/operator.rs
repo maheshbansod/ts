@@ -30,6 +30,13 @@ pub struct POperator<'a> {
     pub token: Token<'a>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+#[cfg(feature = "ts")]
+pub struct PTsOperator<'a> {
+    pub kind: POperatorKind,
+    pub token: Token<'a>,
+}
+
 impl<'a> POperator<'a> {
     pub(super) const fn new(kind: POperatorKind, token: Token<'a>) -> Self {
         Self { kind, token }

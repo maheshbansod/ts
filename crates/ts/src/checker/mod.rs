@@ -94,8 +94,6 @@ impl<'a> Checker<'a> {
                         }
                     }
                     PAtom::Function(_) => todo!(),
-                    #[cfg(feature = "ts")]
-                    PAtom::Type(_t) => todo!(),
                 },
                 PJsExpression::Cons(operator, args) => {
                     let t = self.resolve_operation(operator, args);
