@@ -9,7 +9,8 @@ mod operator;
 
 pub use binding::BindingType;
 pub use expression::PJsExpression;
-use expression::PTsExpression;
+#[cfg(feature = "ts")]
+pub use expression::PTsExpression;
 pub use operator::POperator;
 pub use operator::POperatorKind;
 

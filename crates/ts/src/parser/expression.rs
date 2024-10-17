@@ -50,6 +50,7 @@ impl<'a> Display for PExpression<'a> {
     }
 }
 
+#[cfg(feature = "ts")]
 impl<'a> Display for PTsExpression<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

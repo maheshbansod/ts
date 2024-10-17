@@ -14,6 +14,9 @@ use crate::{
     tokenizer::Token,
 };
 
+#[cfg(feature = "ts")]
+use crate::parser::PTsExpression;
+
 pub struct Checker<'a> {
     tree: &'a ParseTree<'a>,
     pub errors: Vec<TsError<'a>>,
