@@ -183,13 +183,25 @@ pub enum PStatement<'a> {
     },
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 #[cfg(feature = "ts")]
 pub enum PType<'a> {
     Any(Token<'a>),
     Number(Token<'a>),
     String(Token<'a>),
     Identifier(PIdentifier<'a>),
+}
+
+#[cfg(feature = "ts")]
+impl<'a> PType<'a> {
+    fn start_token(&self) -> &Token<'a> {
+        match &self {
+            Self::Identifier(id) => &id.token,
+            Self::Any(t) => &t,
+            Self::Number(t) => &t,
+            Self::String(t) => &t,
+        }
+    }
 }
 
 impl Debug for ParseTreeRoot<'_> {
@@ -252,6 +264,8 @@ pub enum PAtom<'a> {
     ObjectLiteral(PObject<'a>),
     Identifier(PIdentifier<'a>),
     Function(PFunction<'a>),
+    #[cfg(feature = "ts")]
+    Type(PType<'a>),
 }
 
 impl<'a> PAtom<'a> {
@@ -267,6 +281,8 @@ impl<'a> PAtom<'a> {
             }
             Self::Identifier(id) => &id.token,
             Self::ObjectLiteral(obj) => &obj.start_token,
+            #[cfg(feature = "ts")]
+            Self::Type(t) => t.start_token(),
         }
     }
 }

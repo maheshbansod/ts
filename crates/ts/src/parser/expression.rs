@@ -41,6 +41,8 @@ impl<'a> Display for PAtom<'a> {
             PAtom::ObjectLiteral(object) => write!(f, "{{{object}}}"),
             PAtom::Identifier(identifier) => write!(f, "{identifier}"),
             PAtom::Function(function) => write!(f, "{function}"),
+            #[cfg(feature = "ts")]
+            PAtom::Type(t) => write!(f, "{t}"),
         }
     }
 }
