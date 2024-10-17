@@ -893,4 +893,47 @@ a.b = '2';
             assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
         }
     }
+
+    #[test]
+    #[cfg(feature = "ts")]
+    fn ts_valid_type() {
+        let code = "let a: number = 4;";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ts")]
+    fn ts_invalid_type() {
+        let code = "let a: number = 'abc';";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 1);
+        match &errors[0].kind {
+            TypeErrorKind::ExpectedType {
+                got,
+                expected: TsType::Number,
+            } if got.non_const().kind == TsType::String => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
 }
