@@ -315,7 +315,8 @@ impl<'a> Checker<'a> {
     }
 
     fn current_scope_variable(&self, id: &str) -> Option<&TsSymbol<'a>> {
-        if let Some(scope) = self.scopes.last() {
+        let mut scopes = self.scopes.iter().rev();
+        while let Some(scope) = scopes.next() {
             let symbols = scope.symbols();
             if let Some(symbol) = symbols.get(id) {
                 return Some(symbol);
@@ -962,6 +963,38 @@ a.b = '2';
         let (errors, scope) = tree.ts_check();
         println!("{errors:?}");
         assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: string");
+        expected_types.insert("b".to_string(), "let b: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn block_invalid() {
+        let code = "
+    let a = 'abc';
+    let b = 1;
+    {
+        b = '43';
+        let c = a + b;
+    }
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 1);
+        match &errors[0].kind {
+            TypeErrorKind::ExpectedType {
+                got,
+                expected: TsType::Number,
+            } if got.non_const().kind == TsType::String => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: string");
         expected_types.insert("b".to_string(), "let b: number");
