@@ -379,6 +379,10 @@ impl<'a> PIdentifier<'a> {
     pub const fn location(&self) -> &TokenLocation {
         self.token.location()
     }
+
+    pub fn token(&self) -> &Token<'a> {
+        &self.token
+    }
 }
 
 #[derive(Debug, PartialEq)]

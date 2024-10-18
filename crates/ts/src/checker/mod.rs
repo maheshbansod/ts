@@ -122,10 +122,16 @@ impl<'a> Checker<'a> {
                             kind: TsType::Any,
                             holding_for: expression,
                         };
-                        return self
-                            .current_scope_variable_type(&identifier.to_string())
-                            .unwrap_or(&default_type)
-                            .clone();
+                        if let Some(t) = self.current_scope_variable_type(&identifier.to_string()) {
+                            t.clone()
+                        } else {
+                            self.errors.push(TsError {
+                                kind: TypeErrorKind::UnknownIdentifier {
+                                    identifier: identifier.token().clone(),
+                                },
+                            });
+                            default_type
+                        }
                     }
                     PAtom::ObjectLiteral(object) => {
                         let object = self.object(object);
@@ -389,6 +395,9 @@ pub enum TypeErrorKind<'a> {
     RedeclareBlockScoped {
         symbol: TsSymbol<'a>,
     },
+    UnknownIdentifier {
+        identifier: Token<'a>,
+    },
 }
 
 impl<'a> Display for TsError<'a> {
@@ -452,6 +461,12 @@ impl<'a> Display for TypeErrorKind<'a> {
                     symbol.name()
                 )
             }
+            TypeErrorKind::UnknownIdentifier { identifier } => write!(
+                f,
+                "{}: Cannot find name '{}'.",
+                identifier.location(),
+                identifier.to_string()
+            ),
         }
     }
 }
@@ -774,9 +789,11 @@ let a = a";
     }
 
     #[test]
+    #[cfg(feature = "ts")]
     fn assignment_any() {
         let code = "
     let a = {a: 4};
+    let h: any = 1;
     a = h; // filler for any type - would need to modify this test later
     ";
         let wrapper = make_parse_tree(code);
@@ -785,8 +802,9 @@ let a = a";
         assert_eq!(errors.len(), 0);
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: {a: number, }");
+        expected_types.insert("h".to_string(), "let h: any");
         let symbols = scope.symbols();
-        assert_eq!(symbols.len(), 1);
+        assert_eq!(symbols.len(), expected_types.len());
         for (id, symbol) in symbols {
             let id = id.clone();
             assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
@@ -937,6 +955,30 @@ a.b = '2';
                 got,
                 expected: TsType::Number,
             } if got.non_const().kind == TsType::String => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn cannot_find_name() {
+        let code = "
+let a = 1;
+a = b;
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 1);
+        match &errors[0].kind {
+            TypeErrorKind::UnknownIdentifier { identifier: _ } => {}
             _ => panic!("Unexpected {:?}", errors[0]),
         }
         let mut expected_types = HashMap::<String, _>::new();
