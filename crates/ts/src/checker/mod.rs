@@ -33,67 +33,75 @@ impl<'a> Checker<'a> {
     }
     pub fn check(mut self) -> (Vec<TsError<'a>>, TsScope<'a>) {
         let root = &self.tree.root;
-        self.add_scope();
-        for statement in &root.statements {
-            match statement {
-                PStatement::Expression { expression } => {
-                    self.expression(expression);
-                }
-                PStatement::Binding {
-                    binding_type,
-                    identifier,
-                    value,
-                    #[cfg(feature = "ts")]
-                    ts_type,
-                } => {
-                    let identifier_name = identifier.name();
-                    #[cfg(feature = "ts")]
-                    let ts_type = ts_type.as_ref().map(|t| self.expression(t));
-                    let final_type = if let Some(value) = value {
-                        let mut rhs_type = self.expression(value);
-                        let rhs_kind = rhs_type.kind.clone();
-                        #[cfg(feature = "ts")]
-                        if let Some(ts_type) = &ts_type {
-                            if !ts_type.kind.contains(&rhs_kind) {
-                                self.errors.push(TsError {
-                                    kind: TypeErrorKind::ExpectedType {
-                                        got: rhs_type.clone(),
-                                        expected: ts_type.kind.clone(),
-                                    },
-                                })
-                            }
-                        }
-                        if matches!(binding_type, BindingType::Let) {
-                            if let TsType::Literal(literal) = rhs_kind {
-                                rhs_type.kind = literal.wider();
-                            }
-                        }
-                        Some(rhs_type)
-                    } else {
-                        None
-                    };
-                    #[cfg(feature = "ts")]
-                    let final_type = if let Some(ts_type) = ts_type {
-                        Some(ts_type)
-                    } else if let Some(final_type) = final_type {
-                        Some(final_type)
-                    } else {
-                        None
-                    };
-                    if let Some(ts_type) = final_type {
-                        let sym = TsSymbol::new(binding_type, identifier, ts_type);
-                        if let Err(e) = self.add_to_scope(identifier_name, sym) {
-                            self.errors.push(e);
-                        }
-                    }
-                }
-                _ => todo!(),
-            };
-        }
 
-        let scope = self.drop_scope().unwrap(); // todo: later only return exported ones i guess
+        let scope = self.block(&root.statements);
 
         (self.errors, scope)
+    }
+
+    fn block(&mut self, statements: &'a [PStatement<'a>]) -> TsScope<'a> {
+        self.add_scope();
+        for statement in statements {
+            self.statement(statement);
+        }
+        self.drop_scope().unwrap()
+    }
+
+    fn statement(&mut self, statement: &'a PStatement<'a>) -> () {
+        match statement {
+            PStatement::Expression { expression } => {
+                self.expression(expression);
+            }
+            PStatement::Binding {
+                binding_type,
+                identifier,
+                value,
+                #[cfg(feature = "ts")]
+                ts_type,
+            } => {
+                let identifier_name = identifier.name();
+                #[cfg(feature = "ts")]
+                let ts_type = ts_type.as_ref().map(|t| self.expression(t));
+                let final_type = if let Some(value) = value {
+                    let mut rhs_type = self.expression(value);
+                    let rhs_kind = rhs_type.kind.clone();
+                    #[cfg(feature = "ts")]
+                    if let Some(ts_type) = &ts_type {
+                        if !ts_type.kind.contains(&rhs_kind) {
+                            self.errors.push(TsError {
+                                kind: TypeErrorKind::ExpectedType {
+                                    got: rhs_type.clone(),
+                                    expected: ts_type.kind.clone(),
+                                },
+                            })
+                        }
+                    }
+                    if matches!(binding_type, BindingType::Let) {
+                        if let TsType::Literal(literal) = rhs_kind {
+                            rhs_type.kind = literal.wider();
+                        }
+                    }
+                    Some(rhs_type)
+                } else {
+                    None
+                };
+                #[cfg(feature = "ts")]
+                let final_type = if let Some(ts_type) = ts_type {
+                    Some(ts_type)
+                } else if let Some(final_type) = final_type {
+                    Some(final_type)
+                } else {
+                    None
+                };
+                if let Some(ts_type) = final_type {
+                    let sym = TsSymbol::new(binding_type, identifier, ts_type);
+                    if let Err(e) = self.add_to_scope(identifier_name, sym) {
+                        self.errors.push(e);
+                    }
+                }
+            }
+            _ => todo!(),
+        };
     }
 
     /// Resolves type of an expression
