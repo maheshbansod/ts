@@ -100,6 +100,9 @@ impl<'a> Checker<'a> {
                     }
                 }
             }
+            PStatement::Block { statements } => {
+                self.block(statements);
+            }
             _ => todo!(),
         };
     }
@@ -937,6 +940,31 @@ a.b = '2';
         }
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn block_access_outer() {
+        let code = "
+    let a = 'abc';
+    {
+        let b = a;
+        let c = a + b;
+    }
+    let b = 1;
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: string");
+        expected_types.insert("b".to_string(), "let b: number");
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), expected_types.len());
         for (id, symbol) in symbols {
