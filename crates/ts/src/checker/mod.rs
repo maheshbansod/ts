@@ -465,7 +465,7 @@ impl<'a> Display for TypeErrorKind<'a> {
                 f,
                 "{}: Cannot find name '{}'.",
                 identifier.location(),
-                identifier.to_string()
+                identifier.lexeme()
             ),
         }
     }
