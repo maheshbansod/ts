@@ -403,8 +403,18 @@ pub struct PIfElseStatement<'a> {
 #[derive(Debug, PartialEq)]
 pub struct PFunction<'a> {
     identifier: Option<PIdentifier<'a>>,
-    arguments: Vec<PIdentifier<'a>>,
+    arguments: Vec<PExpression<'a>>,
     body: Vec<PStatement<'a>>,
+}
+
+impl<'a> PFunction<'a> {
+    pub fn identifier(&self) -> Option<&PIdentifier<'a>> {
+        self.identifier.as_ref()
+    }
+
+    pub fn arguments(&self) -> &Vec<PExpression<'a>> {
+        &self.arguments
+    }
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -760,9 +770,9 @@ let x = function ( {};
             ParserError::ExpectedToken {
                 expected: TokenKind::ParenthesisClose,
                 got: Token::new(
-                    TokenKind::BraceOpen,
-                    TokenLocation { row: 2, column: 20 },
-                    "{"
+                    TokenKind::Semicolon,
+                    TokenLocation { row: 2, column: 22 },
+                    ";"
                 )
             }
         );

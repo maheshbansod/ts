@@ -11,9 +11,9 @@ impl<'a> Parser<'a> {
         self.expect_token(TokenKind::ParenthesisOpen)?;
         let mut args = vec![];
         loop {
-            match self.parse_identifier() {
-                Ok(identifier) => {
-                    args.push(identifier);
+            match self.parse_expression() {
+                Ok(expr) => {
+                    args.push(expr);
                 }
                 Err(_e) => {
                     self.expect_token(TokenKind::ParenthesisClose)?;
@@ -180,20 +180,20 @@ function foo(arg1, arg2) {}
                             ),
                         }),
                         arguments: vec![
-                            PIdentifier {
+                            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
                                     TokenKind::Identifier,
                                     TokenLocation { row: 2, column: 14 },
                                     "arg1",
                                 ),
-                            },
-                            PIdentifier {
+                            }))),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
                                 token: Token::new(
                                     TokenKind::Identifier,
                                     TokenLocation { row: 2, column: 20 },
                                     "arg2",
                                 ),
-                            },
+                            }))),
                         ],
                         body: vec![],
                     }))),
