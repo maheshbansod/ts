@@ -13,6 +13,7 @@ things to do
 - [x] Assign expression
 - [x] ignore comments
 - [ ] anon functions
+- [ ] parse a = { b: { c: 1, d: "2" }, f: 1 };
 
 ### Operators
 
