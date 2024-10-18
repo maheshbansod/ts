@@ -32,6 +32,7 @@ things to do
 - [ ] plan on an equivalent of tsconfig.json
 - [ ] Functions and scopes
 - [ ] libs + core
+- [ ] undeclared
 
 # Resolver
 
