@@ -182,7 +182,7 @@ function foo(a, b) {
     #[cfg(feature = "ts")]
     fn function_return_type() {
         let code = "
-    function foo(a: number, b): string {
+    function foo(a: number, b: string): string {
     }
         ";
         let tree = make_parse_tree(code);
@@ -190,7 +190,7 @@ function foo(a, b) {
         println!("{errors:?}");
         assert_eq!(errors.len(), 0);
         let mut expected_types = HashMap::<String, _>::new();
-        expected_types.insert("foo".to_string(), "var foo: (number, any) => string");
+        expected_types.insert("foo".to_string(), "var foo: (number, string) => string");
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), expected_types.len());
         for (id, symbol) in symbols {
