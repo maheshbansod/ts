@@ -415,6 +415,10 @@ impl<'a> PFunction<'a> {
     pub fn arguments(&self) -> &Vec<PExpression<'a>> {
         &self.arguments
     }
+
+    pub fn body(&self) -> &Vec<PStatement<'a>> {
+        &self.body
+    }
 }
 
 #[allow(clippy::module_name_repetitions)]

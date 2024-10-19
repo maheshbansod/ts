@@ -1,8 +1,10 @@
+mod function;
 mod object;
 mod scope;
 
 use std::fmt::Display;
 
+use function::TsFunction;
 use object::TsObjectLiteral;
 use scope::{TsScope, TsSymbol};
 
@@ -41,10 +43,14 @@ impl<'a> Checker<'a> {
 
     fn block(&mut self, statements: &'a [PStatement<'a>]) -> TsScope<'a> {
         self.add_scope();
+        self.block_content(statements);
+        self.drop_scope().unwrap()
+    }
+
+    fn block_content(&mut self, statements: &'a [PStatement<'a>]) {
         for statement in statements {
             self.statement(statement);
         }
-        self.drop_scope().unwrap()
     }
 
     fn statement(&mut self, statement: &'a PStatement<'a>) -> () {
@@ -140,7 +146,65 @@ impl<'a> Checker<'a> {
                             holding_for: expression,
                         }
                     }
-                    PAtom::Function(_) => todo!(),
+                    PAtom::Function(function) => {
+                        // todo: defer the function to end of block maybe? or um, it's confusing -
+                        // i want it available to others too
+                        //
+                        // todo: recursive functions
+                        //
+                        // todo: add more tests - closure type check, invalid types etc
+
+                        let function_name = function.identifier();
+                        self.add_scope();
+                        let args = function
+                            .arguments()
+                            .iter()
+                            .map(|arg| {
+                                if let PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
+                                    ident,
+                                ))) = arg
+                                {
+                                    let symbol = TsSymbol::new(
+                                        &BindingType::Var,
+                                        ident,
+                                        TsTypeHolder {
+                                            kind: TsType::Any,
+                                            holding_for: arg,
+                                        },
+                                    );
+                                    if let Err(_e) = self.add_to_scope(ident.name(), symbol) {
+                                        todo!("argument already exists error");
+                                    }
+                                    TsType::Any
+                                } else {
+                                    todo!(); // maybe syntax error?
+                                }
+                            })
+                            .collect::<Vec<_>>();
+                        // time to go through the body
+                        self.block_content(function.body());
+                        self.drop_scope().expect("endo of scope");
+
+                        let return_type = TsType::Void; // TODO: parse type or infer type
+
+                        let ts_type_holder = TsTypeHolder {
+                            kind: TsType::Function(TsFunction::new(args, Box::new(return_type))),
+                            holding_for: expression,
+                        };
+                        if let Some(function_name) = function_name {
+                            if let Err(e) = self.add_to_scope(
+                                function_name.name(),
+                                TsSymbol::new(
+                                    &BindingType::Var,
+                                    function_name,
+                                    ts_type_holder.clone(),
+                                ),
+                            ) {
+                                self.errors.push(e);
+                            }
+                        }
+                        ts_type_holder
+                    }
                 },
                 PJsExpression::Cons(operator, args) => {
                     let t = self.resolve_operation(operator, args);
@@ -510,6 +574,8 @@ pub enum TsType<'a> {
     Number,
     String,
     Object(TsObjectLiteral<'a>),
+    Function(TsFunction<'a>),
+    Void,
 }
 
 impl<'a> Display for TsType<'a> {
@@ -520,6 +586,17 @@ impl<'a> Display for TsType<'a> {
             TsType::String => write!(f, "string"),
             TsType::Literal(literal) => write!(f, "{literal}"),
             TsType::Object(obj) => write!(f, "{obj}"),
+            TsType::Function(function) => {
+                let args = &function.args;
+                let return_type = &function.return_type;
+                let args_joined = args
+                    .iter()
+                    .map(|a| format!("{a}"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "({args_joined}) => {return_type}")
+            }
+            TsType::Void => write!(f, "void"),
         }
     }
 }
@@ -1098,6 +1175,80 @@ a = b;
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("a".to_string(), "let a: string");
         expected_types.insert("b".to_string(), "let b: number");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn function_any_args() {
+        let code = "
+let a = 2;
+function foo(a, b) {
+    const x = 4;
+}
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: number");
+        expected_types.insert("foo".to_string(), "var foo: (any, any) => void");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn void_function() {
+        let code = "
+let a = 2;
+function foo() {
+    const x = 4;
+}
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("a".to_string(), "let a: number");
+        expected_types.insert("foo".to_string(), "var foo: () => void");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn function_redeclare_param() {
+        let code = "
+function foo(a, b) {
+    const x = 4;
+    let a = 2;
+}
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 1);
+        match &errors[0].kind {
+            TypeErrorKind::RedeclareBlockScoped { symbol } => {
+                assert_eq!(symbol.type_info(), "let a: number")
+            }
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("foo".to_string(), "var foo: (any, any) => void");
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), expected_types.len());
         for (id, symbol) in symbols {
