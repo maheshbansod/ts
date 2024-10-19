@@ -74,7 +74,7 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
-    use crate::checker::{tests::make_parse_tree, TypeErrorKind};
+    use crate::checker::{tests::make_parse_tree, TsType, TypeErrorKind};
 
     #[test]
     fn function_any_args() {
@@ -153,8 +153,6 @@ function foo(a, b) {
     #[test]
     #[cfg(feature = "ts")]
     fn function_invalid_param() {
-        use crate::checker::TsType;
-
         let code = "
     function foo(a: number, b) {
         a = 'abc'
@@ -194,6 +192,109 @@ function foo(a, b) {
         assert_eq!(errors.len(), 0);
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("foo".to_string(), "var foo: (number, string) => string");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    fn call() {
+        let code = "
+function foo(a) {
+    a
+}
+foo(3);
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("foo".to_string(), "var foo: (any) => void");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+    #[test]
+    fn call_args_1_0() {
+        let code = "
+function foo(a) {
+    a
+}
+foo();
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 1);
+        match &errors[0].kind {
+            TypeErrorKind::NumberOfArguments {
+                token: _,
+                expected: 1,
+                got: 0,
+            } => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("foo".to_string(), "var foo: (any) => void");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ts")]
+    fn call_with_type() {
+        let code = "
+function foo(a: number) {
+    a
+}
+foo(3);
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("foo".to_string(), "var foo: (number) => void");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ts")]
+    fn call_with_invalid_type() {
+        let code = "
+function foo(a: string) {
+    a
+}
+foo(3);
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        assert_eq!(errors.len(), 1);
+        match &errors[0].kind {
+            TypeErrorKind::InvalidArgument {
+                got,
+                expected: TsType::String,
+            } if got.kind.non_const().matches(&TsType::Number) => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("foo".to_string(), "var foo: (string) => void");
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), expected_types.len());
         for (id, symbol) in symbols {

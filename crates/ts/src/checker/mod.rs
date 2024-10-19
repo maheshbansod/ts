@@ -2,7 +2,7 @@ mod function;
 mod object;
 mod scope;
 
-use std::fmt::Display;
+use std::{fmt::Display, ops::Deref};
 
 use function::TsFunction;
 use object::TsObjectLiteral;
@@ -295,6 +295,41 @@ impl<'a> Checker<'a> {
                         "this would never happen, should we represent expressions another way?"
                     ),
                 }
+            } else if operator.kind == POperatorKind::FunctionCall {
+                let (callee, args) = args
+                    .split_first()
+                    .expect("if there's no callee then it's a parser bug");
+                let function_type = self.expression(callee);
+                match function_type.kind {
+                    TsType::Function(function) => {
+                        if function.params.len() != args.len() {
+                            self.errors.push(TsError {
+                                kind: TypeErrorKind::NumberOfArguments {
+                                    token: operator.token.clone(),
+                                    expected: function.params.len() as u32,
+                                    got: args.len() as u32,
+                                },
+                            })
+                        } else {
+                            let mut args = args.iter();
+                            for param in function.params {
+                                let arg = args.next().unwrap();
+                                let arg_type = self.expression(arg);
+                                if !param.contains(&arg_type.kind) {
+                                    self.errors.push(TsError {
+                                        kind: TypeErrorKind::InvalidArgument {
+                                            got: arg_type,
+                                            expected: param,
+                                        },
+                                    })
+                                }
+                            }
+                        }
+                        Some(function.return_type.deref().clone())
+                    }
+                    TsType::Any => Some(TsType::Any),
+                    _ => todo!("show some generic cannot call a blah blah"),
+                }
             } else {
                 // Naive algo just checks if all args have same type
 
@@ -413,12 +448,21 @@ pub enum TypeErrorKind<'a> {
         got: TsTypeHolder<'a, 'a>,
         expected: TsType<'a>,
     },
+    InvalidArgument {
+        got: TsTypeHolder<'a, 'a>,
+        expected: TsType<'a>,
+    },
     InvalidLvalue {
         assign_token: Token<'a>,
     },
     InvalidOperands {
         operands: Vec<TsTypeHolder<'a, 'a>>,
         operator_token: Token<'a>,
+    },
+    NumberOfArguments {
+        token: Token<'a>,
+        expected: u32,
+        got: u32,
     },
     ReassignConstant {
         symbol: TsSymbol<'a>,
@@ -450,6 +494,15 @@ impl<'a> Display for TypeErrorKind<'a> {
                     expected
                 )
             }
+            TypeErrorKind::InvalidArgument { got, expected } => {
+                write!(
+                    f,
+                    "{}: Argument of type '{}' is not assignable to parameter of type '{}'.",
+                    got.holding_for.one_token().location(),
+                    got.kind,
+                    expected
+                )
+            }
             TypeErrorKind::InvalidLvalue { assign_token } => {
                 write!(f, "{}: The left-hand side of an assignment expression must be a variable or a property access.", assign_token.location())
             }
@@ -473,6 +526,19 @@ impl<'a> Display for TypeErrorKind<'a> {
                 write!(f, "{all_except_last}")?;
                 write!(f, " and '{}'.", last.kind.non_const())?;
                 Ok(())
+            }
+            TypeErrorKind::NumberOfArguments {
+                expected,
+                got,
+                token,
+            } => {
+                let optional_s = if *expected != 1 { "s" } else { "" };
+                write!(
+                    f,
+                    "{}: Expected {expected} argument{} but got {got}",
+                    token.location(),
+                    optional_s
+                )
             }
             TypeErrorKind::ReassignConstant {
                 symbol,
@@ -1151,5 +1217,4 @@ a = b;
             assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
         }
     }
-
 }
