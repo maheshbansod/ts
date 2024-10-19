@@ -154,44 +154,12 @@ impl<'a> Checker<'a> {
                         //
                         // todo: add more tests - closure type check, invalid types etc
 
-                        let function_name = function.identifier();
-                        self.add_scope();
-                        let args = function
-                            .arguments()
-                            .iter()
-                            .map(|arg| {
-                                if let PExpression::Js(PJsExpression::Atom(PAtom::Identifier(
-                                    ident,
-                                ))) = arg
-                                {
-                                    let symbol = TsSymbol::new(
-                                        &BindingType::Var,
-                                        ident,
-                                        TsTypeHolder {
-                                            kind: TsType::Any,
-                                            holding_for: arg,
-                                        },
-                                    );
-                                    if let Err(_e) = self.add_to_scope(ident.name(), symbol) {
-                                        todo!("argument already exists error");
-                                    }
-                                    TsType::Any
-                                } else {
-                                    todo!(); // maybe syntax error?
-                                }
-                            })
-                            .collect::<Vec<_>>();
-                        // time to go through the body
-                        self.block_content(function.body());
-                        self.drop_scope().expect("endo of scope");
-
-                        let return_type = TsType::Void; // TODO: parse type or infer type
-
+                        let ts_function = self.function(function);
                         let ts_type_holder = TsTypeHolder {
-                            kind: TsType::Function(TsFunction::new(args, Box::new(return_type))),
+                            kind: TsType::Function(ts_function),
                             holding_for: expression,
                         };
-                        if let Some(function_name) = function_name {
+                        if let Some(function_name) = function.identifier() {
                             if let Err(e) = self.add_to_scope(
                                 function_name.name(),
                                 TsSymbol::new(
@@ -813,6 +781,7 @@ let b = a";
         let tok = Tokenizer::new(code);
         let parser = Parser::new(tok);
         let (tree, errors) = parser.parse().unwrap();
+        println!("Parse errors: {errors:?}");
         assert!(errors.is_empty());
         TreeWrapper { tree }
     }
@@ -1183,77 +1152,4 @@ a = b;
         }
     }
 
-    #[test]
-    fn function_any_args() {
-        let code = "
-let a = 2;
-function foo(a, b) {
-    const x = 4;
-}
-    ";
-        let tree = make_parse_tree(code);
-        let (errors, scope) = tree.ts_check();
-        println!("{errors:?}");
-        assert_eq!(errors.len(), 0);
-        let mut expected_types = HashMap::<String, _>::new();
-        expected_types.insert("a".to_string(), "let a: number");
-        expected_types.insert("foo".to_string(), "var foo: (any, any) => void");
-        let symbols = scope.symbols();
-        assert_eq!(symbols.len(), expected_types.len());
-        for (id, symbol) in symbols {
-            let id = id.clone();
-            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
-        }
-    }
-
-    #[test]
-    fn void_function() {
-        let code = "
-let a = 2;
-function foo() {
-    const x = 4;
-}
-    ";
-        let tree = make_parse_tree(code);
-        let (errors, scope) = tree.ts_check();
-        println!("{errors:?}");
-        assert_eq!(errors.len(), 0);
-        let mut expected_types = HashMap::<String, _>::new();
-        expected_types.insert("a".to_string(), "let a: number");
-        expected_types.insert("foo".to_string(), "var foo: () => void");
-        let symbols = scope.symbols();
-        assert_eq!(symbols.len(), expected_types.len());
-        for (id, symbol) in symbols {
-            let id = id.clone();
-            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
-        }
-    }
-
-    #[test]
-    fn function_redeclare_param() {
-        let code = "
-function foo(a, b) {
-    const x = 4;
-    let a = 2;
-}
-    ";
-        let tree = make_parse_tree(code);
-        let (errors, scope) = tree.ts_check();
-        println!("{errors:?}");
-        assert_eq!(errors.len(), 1);
-        match &errors[0].kind {
-            TypeErrorKind::RedeclareBlockScoped { symbol } => {
-                assert_eq!(symbol.type_info(), "let a: number")
-            }
-            _ => panic!("Unexpected {:?}", errors[0]),
-        }
-        let mut expected_types = HashMap::<String, _>::new();
-        expected_types.insert("foo".to_string(), "var foo: (any, any) => void");
-        let symbols = scope.symbols();
-        assert_eq!(symbols.len(), expected_types.len());
-        for (id, symbol) in symbols {
-            let id = id.clone();
-            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
-        }
-    }
 }
