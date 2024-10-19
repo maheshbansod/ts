@@ -37,14 +37,14 @@ impl<'a> Checker<'a> {
                         &BindingType::Var,
                         ident,
                         TsTypeHolder {
-                            kind,
+                            kind: kind.clone(),
                             holding_for: arg.expression(),
                         },
                     );
                     if let Err(_e) = self.add_to_scope(ident.name(), symbol) {
                         todo!("argument already exists error");
                     }
-                    TsType::Any
+                    kind
                 } else {
                     todo!(); // maybe syntax error?
                 }
@@ -68,6 +68,8 @@ impl<'a> Checker<'a> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+
+    use pretty_assertions::assert_eq;
 
     use crate::checker::{tests::make_parse_tree, TypeErrorKind};
 
@@ -167,7 +169,7 @@ function foo(a, b) {
             _ => panic!("Unexpected {:?}", errors[0]),
         }
         let mut expected_types = HashMap::<String, _>::new();
-        expected_types.insert("foo".to_string(), "var foo: (any, any) => void");
+        expected_types.insert("foo".to_string(), "var foo: (number, any) => void");
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), expected_types.len());
         for (id, symbol) in symbols {
@@ -188,7 +190,7 @@ function foo(a, b) {
         println!("{errors:?}");
         assert_eq!(errors.len(), 0);
         let mut expected_types = HashMap::<String, _>::new();
-        expected_types.insert("foo".to_string(), "var foo: (any, any) => string");
+        expected_types.insert("foo".to_string(), "var foo: (number, any) => string");
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), expected_types.len());
         for (id, symbol) in symbols {
