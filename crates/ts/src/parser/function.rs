@@ -238,4 +238,46 @@ function foo(arg1, arg2) {}
         };
         assert_eq!(expected_tree, tree);
     }
+
+    #[test]
+    fn function_call() {
+        let code = "foo(a)";
+        let tokenizer = Tokenizer::new(code);
+        let parser = Parser::new(tokenizer);
+        let (tree, errors) = parser.parse().expect("should parse");
+        assert_eq!(errors, vec![]);
+        let expected_tree = ParseTree {
+            root: ParseTreeRoot {
+                statements: vec![PStatement::Expression {
+                    expression: PExpression::Js(PJsExpression::Cons(
+                        POperator::new(
+                            POperatorKind::FunctionCall,
+                            Token::new(
+                                TokenKind::ParenthesisOpen,
+                                TokenLocation { row: 1, column: 4 },
+                                "(", //) weird - maybe treesitter bug
+                            ),
+                        ),
+                        vec![
+                            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenKind::Identifier,
+                                    TokenLocation { row: 1, column: 1 },
+                                    "foo",
+                                ),
+                            }))),
+                            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
+                                token: Token::new(
+                                    TokenKind::Identifier,
+                                    TokenLocation { row: 1, column: 5 },
+                                    "a",
+                                ),
+                            }))),
+                        ],
+                    )),
+                }],
+            },
+        };
+        assert_eq!(tree, expected_tree);
+    }
 }
