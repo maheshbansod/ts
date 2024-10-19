@@ -414,6 +414,11 @@ impl<'a> PLValue<'a> {
     pub fn expression(&self) -> &PExpression<'a> {
         &self.expression
     }
+
+    #[cfg(feature = "ts")]
+    pub fn ts_type(&self) -> Option<&PExpression<'a>> {
+        self.ts_type.as_ref()
+    }
 }
 
 #[derive(Debug, PartialEq)]

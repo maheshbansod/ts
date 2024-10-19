@@ -25,11 +25,19 @@ impl<'a> Checker<'a> {
                 if let PExpression::Js(PJsExpression::Atom(PAtom::Identifier(ident))) =
                     arg.expression()
                 {
+                    let kind = TsType::Any;
+                    #[cfg(feature = "ts")]
+                    let kind = if let Some(ts_type_expression) = arg.ts_type() {
+                        let ts_type = self.expression(ts_type_expression);
+                        ts_type.kind
+                    } else {
+                        kind
+                    };
                     let symbol = TsSymbol::new(
                         &BindingType::Var,
                         ident,
                         TsTypeHolder {
-                            kind: TsType::Any,
+                            kind,
                             holding_for: arg.expression(),
                         },
                     );
@@ -120,6 +128,37 @@ function foo(a, b) {
             TypeErrorKind::RedeclareBlockScoped { symbol } => {
                 assert_eq!(symbol.type_info(), "let a: number")
             }
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("foo".to_string(), "var foo: (any, any) => void");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ts")]
+    fn function_invalid_param() {
+        use crate::checker::TsType;
+
+        let code = "
+    function foo(a: number, b) {
+        a = 'abc'
+    }
+        ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 1);
+        match &errors[0].kind {
+            TypeErrorKind::ExpectedType {
+                expected: TsType::Number,
+                got,
+            } if got.kind.matches(&TsType::String) => {}
             _ => panic!("Unexpected {:?}", errors[0]),
         }
         let mut expected_types = HashMap::<String, _>::new();

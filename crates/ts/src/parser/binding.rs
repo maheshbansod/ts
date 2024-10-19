@@ -2,12 +2,7 @@ use std::fmt::Display;
 
 use crate::tokenizer::TokenKind;
 
-#[cfg(feature = "ts")]
-use super::expression::{PExpression, PTsExpression};
 use super::{PStatement, ParseResult, Parser};
-
-#[cfg(feature = "ts")]
-use super::PTsAtom;
 
 impl<'a> Parser<'a> {
     /// Parse binding type statement - assume the next token is already checked to be

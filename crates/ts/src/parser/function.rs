@@ -15,7 +15,7 @@ impl<'a> Parser<'a> {
                 Ok(expr) => {
                     #[cfg(feature = "ts")]
                     let ts_type = if self.expect_token(TokenKind::Colon).is_ok() {
-                        self.parse_expression().ok()
+                        self.parse_ts_expression().ok()
                     } else {
                         None
                     };

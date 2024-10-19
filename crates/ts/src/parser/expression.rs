@@ -193,6 +193,7 @@ impl<'a> Parser<'a> {
         Ok(lhs)
     }
 
+    #[cfg(feature = "ts")]
     pub(super) fn parse_ts_expression(&mut self) -> ParseResult<'a, PExpression<'a>> {
         // todo: parse type expression
         self.parse_identifier()
