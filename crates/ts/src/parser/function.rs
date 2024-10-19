@@ -1,6 +1,6 @@
 use crate::tokenizer::TokenKind;
 
-use super::{PFunction, ParseResult, Parser, ParserError};
+use super::{PFunction, PLValue, ParseResult, Parser, ParserError};
 
 impl<'a> Parser<'a> {
     pub(super) fn parse_function(
@@ -13,7 +13,17 @@ impl<'a> Parser<'a> {
         loop {
             match self.parse_expression() {
                 Ok(expr) => {
-                    args.push(expr);
+                    #[cfg(feature = "ts")]
+                    let ts_type = if self.expect_token(TokenKind::Colon).is_ok() {
+                        self.parse_expression().ok()
+                    } else {
+                        None
+                    };
+                    args.push(PLValue {
+                        expression: expr,
+                        #[cfg(feature = "ts")]
+                        ts_type,
+                    });
                 }
                 Err(_e) => {
                     self.expect_token(TokenKind::ParenthesisClose)?;
@@ -45,7 +55,7 @@ mod tests {
     use crate::{
         parser::{
             operator::{POperator, POperatorKind},
-            BindingType, PAtom, PExpression, PFunction, PIdentifier, PJsExpression,
+            BindingType, PAtom, PExpression, PFunction, PIdentifier, PJsExpression, PLValue,
             PLiteralPrimitive, PStatement, ParseTree, ParseTreeRoot, Parser,
         },
         tokenizer::{Token, TokenKind, TokenLocation, Tokenizer},
@@ -180,20 +190,32 @@ function foo(arg1, arg2) {}
                             ),
                         }),
                         arguments: vec![
-                            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenKind::Identifier,
-                                    TokenLocation { row: 2, column: 14 },
-                                    "arg1",
-                                ),
-                            }))),
-                            PExpression::Js(PJsExpression::Atom(PAtom::Identifier(PIdentifier {
-                                token: Token::new(
-                                    TokenKind::Identifier,
-                                    TokenLocation { row: 2, column: 20 },
-                                    "arg2",
-                                ),
-                            }))),
+                            PLValue {
+                                expression: PExpression::Js(PJsExpression::Atom(
+                                    PAtom::Identifier(PIdentifier {
+                                        token: Token::new(
+                                            TokenKind::Identifier,
+                                            TokenLocation { row: 2, column: 14 },
+                                            "arg1",
+                                        ),
+                                    }),
+                                )),
+                                #[cfg(feature = "ts")]
+                                ts_type: None,
+                            },
+                            PLValue {
+                                expression: PExpression::Js(PJsExpression::Atom(
+                                    PAtom::Identifier(PIdentifier {
+                                        token: Token::new(
+                                            TokenKind::Identifier,
+                                            TokenLocation { row: 2, column: 20 },
+                                            "arg2",
+                                        ),
+                                    }),
+                                )),
+                                #[cfg(feature = "ts")]
+                                ts_type: None,
+                            },
                         ],
                         body: vec![],
                     }))),

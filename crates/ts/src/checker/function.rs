@@ -22,13 +22,15 @@ impl<'a> Checker<'a> {
             .arguments()
             .iter()
             .map(|arg| {
-                if let PExpression::Js(PJsExpression::Atom(PAtom::Identifier(ident))) = arg {
+                if let PExpression::Js(PJsExpression::Atom(PAtom::Identifier(ident))) =
+                    arg.expression()
+                {
                     let symbol = TsSymbol::new(
                         &BindingType::Var,
                         ident,
                         TsTypeHolder {
                             kind: TsType::Any,
-                            holding_for: arg,
+                            holding_for: arg.expression(),
                         },
                     );
                     if let Err(_e) = self.add_to_scope(ident.name(), symbol) {

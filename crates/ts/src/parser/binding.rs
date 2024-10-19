@@ -3,8 +3,8 @@ use std::fmt::Display;
 use crate::tokenizer::TokenKind;
 
 #[cfg(feature = "ts")]
-use super::expression::PTsExpression;
-use super::{PExpression, PStatement, ParseResult, Parser};
+use super::expression::{PExpression, PTsExpression};
+use super::{PStatement, ParseResult, Parser};
 
 #[cfg(feature = "ts")]
 use super::PTsAtom;

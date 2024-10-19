@@ -400,10 +400,26 @@ pub struct PIfElseStatement<'a> {
     else_body: Option<Box<PStatement<'a>>>,
 }
 
+/// Represents the parse tree node of an lvalue expression
+/// This may also contain any type information for `ts`.
+/// TODO: this can be used for binding as well maybe
+#[derive(Debug, PartialEq)]
+pub struct PLValue<'a> {
+    expression: PExpression<'a>,
+    #[cfg(feature = "ts")]
+    ts_type: Option<PExpression<'a>>,
+}
+
+impl<'a> PLValue<'a> {
+    pub fn expression(&self) -> &PExpression<'a> {
+        &self.expression
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct PFunction<'a> {
     identifier: Option<PIdentifier<'a>>,
-    arguments: Vec<PExpression<'a>>,
+    arguments: Vec<PLValue<'a>>,
     body: Vec<PStatement<'a>>,
 }
 
@@ -412,7 +428,7 @@ impl<'a> PFunction<'a> {
         self.identifier.as_ref()
     }
 
-    pub fn arguments(&self) -> &Vec<PExpression<'a>> {
+    pub fn arguments(&self) -> &Vec<PLValue<'a>> {
         &self.arguments
     }
 
