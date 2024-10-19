@@ -37,6 +37,12 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
+        #[cfg(feature = "ts")]
+        let return_type = if self.expect_token(TokenKind::Colon).is_ok() {
+            self.parse_ts_expression().ok()
+        } else {
+            None
+        };
         self.expect_token(TokenKind::BraceOpen)?;
         let (statements, errors) = self.parse_block_statements(true)?;
         Ok((
@@ -44,6 +50,8 @@ impl<'a> Parser<'a> {
                 identifier,
                 arguments: args,
                 body: statements,
+                #[cfg(feature = "ts")]
+                return_type: return_type.map(|r| Box::new(r)),
             },
             errors,
         ))
@@ -76,6 +84,8 @@ let y = x+1;
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
                     expression: PExpression::Js(PJsExpression::Atom(PAtom::Function(PFunction {
+                        #[cfg(feature = "ts")]
+                        return_type: None,
                         identifier: Some(PIdentifier {
                             token: Token::new(
                                 TokenKind::Identifier,
@@ -158,6 +168,8 @@ let x = function () {};
                     ts_type: None,
                     value: Some(PExpression::Js(PJsExpression::Atom(PAtom::Function(
                         PFunction {
+                            #[cfg(feature = "ts")]
+                            return_type: None,
                             identifier: None,
                             arguments: vec![],
                             body: vec![],
@@ -182,6 +194,8 @@ function foo(arg1, arg2) {}
             root: ParseTreeRoot {
                 statements: vec![PStatement::Expression {
                     expression: PExpression::Js(PJsExpression::Atom(PAtom::Function(PFunction {
+                        #[cfg(feature = "ts")]
+                        return_type: None,
                         identifier: Some(PIdentifier {
                             token: Token::new(
                                 TokenKind::Identifier,

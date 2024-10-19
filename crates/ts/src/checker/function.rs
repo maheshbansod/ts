@@ -54,7 +54,12 @@ impl<'a> Checker<'a> {
         self.block_content(function.body());
         self.drop_scope().expect("endo of scope");
 
-        let return_type = TsType::Void; // TODO: parse type or infer type
+        let return_type = TsType::Void;
+        #[cfg(feature = "ts")]
+        let return_type = function
+            .return_type()
+            .map(|r| self.expression(r).kind)
+            .unwrap_or(return_type);
 
         TsFunction::new(args, Box::new(return_type))
     }
@@ -163,6 +168,27 @@ function foo(a, b) {
         }
         let mut expected_types = HashMap::<String, _>::new();
         expected_types.insert("foo".to_string(), "var foo: (any, any) => void");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ts")]
+    fn function_return_type() {
+        let code = "
+    function foo(a: number, b): string {
+    }
+        ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        println!("{errors:?}");
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("foo".to_string(), "var foo: (any, any) => string");
         let symbols = scope.symbols();
         assert_eq!(symbols.len(), expected_types.len());
         for (id, symbol) in symbols {

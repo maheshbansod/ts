@@ -426,6 +426,8 @@ pub struct PFunction<'a> {
     identifier: Option<PIdentifier<'a>>,
     arguments: Vec<PLValue<'a>>,
     body: Vec<PStatement<'a>>,
+    #[cfg(feature = "ts")]
+    return_type: Option<Box<PExpression<'a>>>,
 }
 
 impl<'a> PFunction<'a> {
@@ -439,6 +441,11 @@ impl<'a> PFunction<'a> {
 
     pub fn body(&self) -> &Vec<PStatement<'a>> {
         &self.body
+    }
+
+    #[cfg(feature = "ts")]
+    pub fn return_type(&self) -> Option<&PExpression<'a>> {
+        self.return_type.as_deref()
     }
 }
 
