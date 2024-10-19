@@ -193,6 +193,18 @@ impl<'a> Parser<'a> {
         Ok(lhs)
     }
 
+    pub(super) fn parse_ts_expression(&mut self) -> ParseResult<'a, PExpression<'a>> {
+        // todo: parse type expression
+        self.parse_identifier()
+            .map(|identifier| match identifier {
+                id if id.to_string() == "number" => PTsAtom::Number(id.token),
+                id if id.to_string() == "string" => PTsAtom::String(id.token),
+                id if id.to_string() == "any" => PTsAtom::Any(id.token),
+                id => PTsAtom::Identifier(id),
+            })
+            .map(|t| PExpression::Ts(PTsExpression::Atom(t)))
+    }
+
     fn try_parse_atom(&mut self) -> ParseResult<'a, (Option<PAtom<'a>>, Vec<ParserError<'a>>)> {
         if let Ok(literal) = self.expect_literal_primitive() {
             Ok((Some(PAtom::Literal(literal)), vec![]))

@@ -20,16 +20,7 @@ impl<'a> Parser<'a> {
         let identifier = self.parse_identifier()?;
         #[cfg(feature = "ts")]
         let ts_type = if self.expect_token(TokenKind::Colon).is_ok() {
-            // todo: parse type expression
-            self.parse_identifier()
-                .ok()
-                .map(|identifier| match identifier {
-                    id if id.to_string() == "number" => PTsAtom::Number(id.token),
-                    id if id.to_string() == "string" => PTsAtom::String(id.token),
-                    id if id.to_string() == "any" => PTsAtom::Any(id.token),
-                    id => PTsAtom::Identifier(id),
-                })
-                .map(|t| PExpression::Ts(PTsExpression::Atom(t)))
+            self.parse_ts_expression().ok()
         } else {
             None
         };
