@@ -5,13 +5,16 @@ use super::{scope::TsSymbol, Checker, TsType, TsTypeHolder};
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct TsFunction<'a> {
-    pub args: Vec<TsType<'a>>,
+    pub params: Vec<TsType<'a>>,
     pub return_type: Box<TsType<'a>>,
 }
 
 impl<'a> TsFunction<'a> {
-    pub fn new(args: Vec<TsType<'a>>, return_type: Box<TsType<'a>>) -> Self {
-        Self { args, return_type }
+    pub fn new(params: Vec<TsType<'a>>, return_type: Box<TsType<'a>>) -> Self {
+        Self {
+            params,
+            return_type,
+        }
     }
 }
 

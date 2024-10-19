@@ -555,7 +555,7 @@ impl<'a> Display for TsType<'a> {
             TsType::Literal(literal) => write!(f, "{literal}"),
             TsType::Object(obj) => write!(f, "{obj}"),
             TsType::Function(function) => {
-                let args = &function.args;
+                let args = &function.params;
                 let return_type = &function.return_type;
                 let args_joined = args
                     .iter()
