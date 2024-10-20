@@ -294,6 +294,27 @@ foo(3);
     }
 
     #[test]
+    fn function_as_expression() {
+        let code = "
+const x = function foo() {}
+let y = x()
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        assert_eq!(errors.len(), 0);
+        let mut expected_types = HashMap::<String, _>::new();
+        expected_types.insert("x".to_string(), "const x: () => void");
+        expected_types.insert("y".to_string(), "let y: void");
+        expected_types.insert("foo".to_string(), "var foo: () => void");
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), expected_types.len());
+        for (id, symbol) in symbols {
+            let id = id.clone();
+            assert_eq!(&symbol.type_info(), expected_types.get(&id).unwrap())
+        }
+    }
+
+    #[test]
     #[cfg(feature = "ts")]
     fn call_with_invalid_type() {
         let code = "
