@@ -328,7 +328,15 @@ impl<'a> Checker<'a> {
                         Some(function.return_type.deref().clone())
                     }
                     TsType::Any => Some(TsType::Any),
-                    _ => todo!("show some generic cannot call a blah blah"),
+                    non_function_type => {
+                        self.errors.push(TsError {
+                            kind: TypeErrorKind::UncallableExpression {
+                                token: function_type.holding_for.one_token().clone(),
+                                ts_type: non_function_type,
+                            },
+                        });
+                        None
+                    }
                 }
             } else {
                 // Naive algo just checks if all args have same type
@@ -471,6 +479,10 @@ pub enum TypeErrorKind<'a> {
     RedeclareBlockScoped {
         symbol: TsSymbol<'a>,
     },
+    UncallableExpression {
+        token: Token<'a>,
+        ts_type: TsType<'a>,
+    },
     UnknownIdentifier {
         identifier: Token<'a>,
     },
@@ -565,6 +577,14 @@ impl<'a> Display for TypeErrorKind<'a> {
                 identifier.location(),
                 identifier.lexeme()
             ),
+            // todo: understand this error better - what does it mean to have a call signature.
+            // also why we using the class?
+            TypeErrorKind::UncallableExpression { token, ts_type } => write!(
+                f,
+                "{}: This expression is not callable.\n\tThe type '{}' has no call signatures.",
+                token.location(),
+                ts_type.as_object()
+            ),
         }
     }
 }
@@ -597,6 +617,28 @@ impl<'a> TsType<'a> {
             },
             _ => todo!(),
         }
+    }
+
+    fn is_primitive(&self) -> bool {
+        matches!(self, TsType::Number | TsType::String)
+    }
+
+    /// TODO: let's represent classes and come back here and make it return a class
+    fn as_object(&self) -> String {
+        match self {
+            t if t.is_primitive() => title_case(&t.to_string()),
+            _ => self.to_string(),
+        }
+    }
+}
+
+/// Makes a string title case
+/// TODO: maybe move it to utils
+fn title_case(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
     }
 }
 

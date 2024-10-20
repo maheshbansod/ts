@@ -275,6 +275,25 @@ foo(3);
     }
 
     #[test]
+    fn call_non_function() {
+        let code = "
+(1+1)(4)
+    ";
+        let tree = make_parse_tree(code);
+        let (errors, scope) = tree.ts_check();
+        assert_eq!(errors.len(), 1);
+        match &errors[0].kind {
+            TypeErrorKind::UncallableExpression {
+                token: _,
+                ts_type: TsType::Number,
+            } => {}
+            _ => panic!("Unexpected {:?}", errors[0]),
+        }
+        let symbols = scope.symbols();
+        assert_eq!(symbols.len(), 0);
+    }
+
+    #[test]
     #[cfg(feature = "ts")]
     fn call_with_invalid_type() {
         let code = "
